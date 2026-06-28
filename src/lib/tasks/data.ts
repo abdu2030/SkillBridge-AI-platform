@@ -37,7 +37,7 @@ export interface Task {
   rubric: RubricItem[];
 }
 
-const defaultRubric: RubricItem[] = [
+export const defaultRubric: RubricItem[] = [
   {
     label: "Correctness",
     points: 40,
