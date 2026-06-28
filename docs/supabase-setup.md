@@ -17,4 +17,7 @@ Redirect URLs:
 - `http://localhost:3000/auth/callback`
 - Production site URL plus `/auth/callback`
 
-Run SQL migrations from `supabase/migrations` in order before testing auth-dependent features.
+Run SQL migrations from `supabase/migrations` in order before testing auth-dependent features:
+
+1. `0001_foundation.sql`
+2. `0002_task_library.sql`
