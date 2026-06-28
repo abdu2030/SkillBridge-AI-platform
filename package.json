@@ -2,8 +2,8 @@
   "name": "skillbridge-ai-platform",
   "private": true,
   "scripts": {
-    "dev": "next dev --webpack",
-    "build": "next build --webpack",
+    "dev": "node scripts/run-next.mjs dev --webpack",
+    "build": "node scripts/run-next.mjs build --webpack",
     "start": "next start",
     "lint": "eslint .",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,mjs,json,md,css}\"",
