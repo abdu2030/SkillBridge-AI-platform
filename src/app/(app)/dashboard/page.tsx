@@ -5,6 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { WeeklyChart } from "@/components/charts/weekly-chart";
 import { SkillChart } from "@/components/charts/skill-chart";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   CheckCircle2,
   TrendingUp,
@@ -35,6 +36,15 @@ const recentSubmissions = [
     status: "Needs improvement",
     time: "1 day ago",
   },
+];
+
+const skillProgress = [
+  { skill: "Python Debugging", score: 88 },
+  { skill: "Code Review", score: 91 },
+  { skill: "Git Workflows", score: 82 },
+  { skill: "Docker", score: 64 },
+  { skill: "Security", score: 58 },
+  { skill: "Database", score: 72 },
 ];
 
 export default function DashboardPage() {
@@ -112,33 +122,50 @@ export default function DashboardPage() {
               View all
             </Link>
           </div>
-          <div className="space-y-3">
-            {recentSubmissions.map((sub) => (
-              <div
-                key={sub.task}
-                className="flex items-center gap-4 text-sm p-3 rounded-lg border border-border"
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-text truncate">{sub.task}</p>
-                  <p className="text-xs text-text-tertiary mt-0.5">{sub.time}</p>
+          {recentSubmissions.length > 0 ? (
+            <div className="space-y-3">
+              {recentSubmissions.map((sub) => (
+                <div
+                  key={sub.task}
+                  className="flex items-center gap-4 text-sm p-3 rounded-lg border border-border"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-text truncate">{sub.task}</p>
+                    <p className="text-xs text-text-tertiary mt-0.5">{sub.time}</p>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className="text-sm font-semibold text-text tabular-nums">
+                      {sub.score}
+                    </span>
+                    <Badge
+                      variant={
+                        sub.status === "Approved"
+                          ? "success"
+                          : sub.status === "Reviewed"
+                            ? "accent"
+                            : "warning"
+                      }
+                    >
+                      {sub.status}
+                    </Badge>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  <span className="text-sm font-semibold text-text tabular-nums">{sub.score}</span>
-                  <Badge
-                    variant={
-                      sub.status === "Approved"
-                        ? "success"
-                        : sub.status === "Reviewed"
-                          ? "accent"
-                          : "warning"
-                    }
-                  >
-                    {sub.status}
-                  </Badge>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              icon={<MessageSquare className="w-6 h-6" />}
+              title="No submissions yet"
+              description="Start a task and submit your first solution to see feedback here."
+              action={
+                <Link href="/tasks">
+                  <Button size="sm" variant="secondary">
+                    Browse tasks
+                  </Button>
+                </Link>
+              }
+            />
+          )}
         </Card>
       </div>
 
@@ -146,29 +173,30 @@ export default function DashboardPage() {
       <Card>
         <CardTitle>Skill progress</CardTitle>
         <CardDescription>Your average scores by category</CardDescription>
-        <div className="mt-4 space-y-4">
-          {[
-            { skill: "Python Debugging", score: 88 },
-            { skill: "Code Review", score: 91 },
-            { skill: "Git Workflows", score: 82 },
-            { skill: "Docker", score: 64 },
-            { skill: "Security", score: 58 },
-            { skill: "Database", score: 72 },
-          ].map((s) => (
-            <div key={s.skill}>
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-sm text-text">{s.skill}</span>
-                <span className="text-xs font-medium text-text-secondary tabular-nums">
-                  {s.score}%
-                </span>
+        {skillProgress.length > 0 ? (
+          <div className="mt-4 space-y-4">
+            {skillProgress.map((s) => (
+              <div key={s.skill}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-sm text-text">{s.skill}</span>
+                  <span className="text-xs font-medium text-text-secondary tabular-nums">
+                    {s.score}%
+                  </span>
+                </div>
+                <Progress
+                  value={s.score}
+                  color={s.score >= 80 ? "success" : s.score >= 60 ? "accent" : "warning"}
+                />
               </div>
-              <Progress
-                value={s.score}
-                color={s.score >= 80 ? "success" : s.score >= 60 ? "accent" : "warning"}
-              />
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <EmptyState
+            icon={<TrendingUp className="w-6 h-6" />}
+            title="No skill data yet"
+            description="Skill progress appears after your first reviewed submission."
+          />
+        )}
       </Card>
     </div>
   );

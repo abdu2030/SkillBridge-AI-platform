@@ -33,6 +33,7 @@ declare module "lucide-react" {
   export const Lightbulb: LucideIcon;
   export const ListChecks: LucideIcon;
   export const Loader2: LucideIcon;
+  export const LogOut: LucideIcon;
   export const Lock: LucideIcon;
   export const Menu: LucideIcon;
   export const MessageSquare: LucideIcon;
@@ -60,6 +61,7 @@ declare module "lucide-react" {
   export const TrendingUp: LucideIcon;
   export const Trophy: LucideIcon;
   export const User: LucideIcon;
+  export const UserCircle: LucideIcon;
   export const Users: LucideIcon;
   export const X: LucideIcon;
   export const XCircle: LucideIcon;

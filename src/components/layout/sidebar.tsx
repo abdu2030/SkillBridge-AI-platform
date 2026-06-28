@@ -1,5 +1,7 @@
 "use client";
+
 import { cn } from "@/lib/utils";
+import type { AppRole } from "@/lib/auth/types";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -29,14 +31,25 @@ const navItems = [
 ];
 
 const bottomItems = [
-  { href: "/reviewer", label: "Reviewer", icon: ClipboardCheck },
-  { href: "/admin", label: "Admin", icon: Shield },
-  { href: "/settings", label: "Settings", icon: Settings },
-];
+  { href: "/reviewer", label: "Reviewer", icon: ClipboardCheck, roles: ["reviewer", "admin"] },
+  { href: "/admin", label: "Admin", icon: Shield, roles: ["admin"] },
+  {
+    href: "/settings",
+    label: "Settings",
+    icon: Settings,
+    roles: ["developer", "reviewer", "admin"],
+  },
+] satisfies Array<{
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  roles: AppRole[];
+}>;
 
-export function Sidebar() {
+export function Sidebar({ role }: { role: AppRole }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const visibleBottomItems = bottomItems.filter((item) => item.roles.includes(role));
 
   return (
     <aside
@@ -65,6 +78,7 @@ export function Sidebar() {
             "text-text-tertiary hover:text-text transition-colors cursor-pointer",
             collapsed && "mx-auto mt-2"
           )}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
         </button>
@@ -93,7 +107,7 @@ export function Sidebar() {
       </nav>
 
       <div className="py-3 px-2 border-t border-border space-y-0.5">
-        {bottomItems.map((item) => {
+        {visibleBottomItems.map((item) => {
           const active = pathname.startsWith(item.href);
           return (
             <Link
