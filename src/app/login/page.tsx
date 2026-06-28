@@ -1,25 +1,63 @@
 "use client";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Code2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useState } from "react";
 
+function getRedirectPath() {
+  if (typeof window === "undefined") return "/dashboard";
+  return new URLSearchParams(window.location.search).get("redirect_to") || "/dashboard";
+}
+
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [errors, setErrors] = useState<{ email?: string; password?: string; form?: string }>({});
   const [loading, setLoading] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const newErrors: typeof errors = {};
     if (!email) newErrors.email = "Email is required";
     if (!password) newErrors.password = "Password is required";
     setErrors(newErrors);
-    if (Object.keys(newErrors).length === 0) {
-      setLoading(true);
-      setTimeout(() => setLoading(false), 2000);
+    if (Object.keys(newErrors).length > 0) return;
+
+    setLoading(true);
+    const supabase = createSupabaseBrowserClient();
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (error) {
+      setErrors({ form: error.message });
+      setLoading(false);
+      return;
+    }
+
+    router.replace(getRedirectPath());
+    router.refresh();
+  };
+
+  const handleGoogleSignIn = async () => {
+    setOauthLoading(true);
+    setErrors({});
+    const supabase = createSupabaseBrowserClient();
+    const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(
+      getRedirectPath()
+    )}`;
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo },
+    });
+
+    if (error) {
+      setErrors({ form: error.message });
+      setOauthLoading(false);
     }
   };
 
@@ -38,7 +76,12 @@ export default function LoginPage() {
         </div>
 
         <div className="bg-bg-card border border-border rounded-xl p-6 shadow-xs">
-          <button className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-text bg-bg-card border border-border rounded-lg hover:bg-surface-hover transition-colors cursor-pointer">
+          <button
+            type="button"
+            onClick={handleGoogleSignIn}
+            disabled={oauthLoading}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-text bg-bg-card border border-border rounded-lg hover:bg-surface-hover transition-colors cursor-pointer disabled:opacity-50"
+          >
             <svg className="w-4 h-4" viewBox="0 0 24 24">
               <path
                 fill="#4285F4"
@@ -57,7 +100,7 @@ export default function LoginPage() {
                 d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
               />
             </svg>
-            Continue with Google
+            {oauthLoading ? "Opening Google..." : "Continue with Google"}
           </button>
 
           <div className="relative my-5">
@@ -70,6 +113,11 @@ export default function LoginPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {errors.form && (
+              <div className="rounded-lg border border-error/20 bg-error-light px-3 py-2 text-xs text-error">
+                {errors.form}
+              </div>
+            )}
             <Input
               label="Email"
               type="email"
@@ -77,20 +125,22 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               error={errors.email}
+              autoComplete="email"
             />
             <div>
               <Input
                 label="Password"
                 type="password"
-                placeholder="••••••••"
+                placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 error={errors.password}
+                autoComplete="current-password"
               />
               <div className="mt-1.5 text-right">
-                <a href="#" className="text-xs text-accent hover:underline">
+                <Link href="/forgot-password" className="text-xs text-accent hover:underline">
                   Forgot password?
-                </a>
+                </Link>
               </div>
             </div>
             <Button type="submit" className="w-full" loading={loading}>
