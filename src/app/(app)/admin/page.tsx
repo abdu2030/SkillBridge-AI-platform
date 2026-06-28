@@ -160,8 +160,9 @@ export default function AdminPage() {
   const [search, setSearch] = useState("");
   const [form, setForm] = useState<TaskFormState>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [formOpen, setFormOpen] = useState(true);
+  const [formOpen, setFormOpen] = useState(false);
   const [formMessage, setFormMessage] = useState("");
+  const [activeTab, setActiveTab] = useState("tasks");
 
   const filteredTasks = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -198,17 +199,19 @@ export default function AdminPage() {
   }
 
   function startCreate() {
+    setActiveTab("tasks");
     setEditingId(null);
     setForm(emptyForm);
     setFormOpen(true);
-    setFormMessage("");
+    setFormMessage("New task form is ready.");
   }
 
   function startEdit(task: AdminTask) {
+    setActiveTab("tasks");
     setEditingId(task.id);
     setForm(formFromTask(task));
     setFormOpen(true);
-    setFormMessage("");
+    setFormMessage(`Editing ${task.title}.`);
   }
 
   function deleteTask(taskId: string) {
@@ -282,6 +285,8 @@ export default function AdminPage() {
       </div>
 
       <Tabs
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
         tabs={[
           {
             id: "tasks",
@@ -289,101 +294,8 @@ export default function AdminPage() {
             count: adminTasks.length,
             content: (
               <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
-                <div className="space-y-4">
-                  <div className="relative max-w-sm">
-                    <Search className="absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-text-tertiary" />
-                    <Input
-                      aria-label="Search admin tasks"
-                      placeholder="Search tasks..."
-                      value={search}
-                      onChange={(event) => setSearch(event.target.value)}
-                      className="pl-9"
-                    />
-                  </div>
-
-                  <Card padding="none">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b border-border">
-                            <th className="px-5 py-3 text-left text-xs font-medium text-text-secondary">
-                              Title
-                            </th>
-                            <th className="hidden px-5 py-3 text-left text-xs font-medium text-text-secondary sm:table-cell">
-                              Category
-                            </th>
-                            <th className="hidden px-5 py-3 text-left text-xs font-medium text-text-secondary md:table-cell">
-                              Difficulty
-                            </th>
-                            <th className="px-5 py-3 text-left text-xs font-medium text-text-secondary">
-                              Status
-                            </th>
-                            <th className="hidden px-5 py-3 text-left text-xs font-medium text-text-secondary sm:table-cell">
-                              Submissions
-                            </th>
-                            <th className="px-5 py-3 text-right text-xs font-medium text-text-secondary">
-                              Actions
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border">
-                          {filteredTasks.map((task) => (
-                            <tr key={task.id} className="hover:bg-surface-hover transition-colors">
-                              <td className="px-5 py-3">
-                                <p className="font-medium text-text">{task.title}</p>
-                                <p className="mt-0.5 text-xs text-text-tertiary">
-                                  {task.estimatedMinutes} min / {task.tags.slice(0, 2).join(", ")}
-                                </p>
-                              </td>
-                              <td className="hidden px-5 py-3 text-xs text-text-secondary sm:table-cell">
-                                {task.category}
-                              </td>
-                              <td className="hidden px-5 py-3 md:table-cell">
-                                <Badge variant="outline">{task.difficulty}</Badge>
-                              </td>
-                              <td className="px-5 py-3">
-                                <Badge variant={statusBadge[task.status]}>{task.status}</Badge>
-                              </td>
-                              <td className="hidden px-5 py-3 tabular-nums text-text-secondary sm:table-cell">
-                                {task.submissions}
-                              </td>
-                              <td className="px-5 py-3 text-right">
-                                <div className="flex items-center justify-end gap-1">
-                                  <Link
-                                    href={`/tasks/${task.id}`}
-                                    className="rounded-md p-1.5 text-text-tertiary transition-colors hover:bg-surface-hover hover:text-text"
-                                    aria-label={`View ${task.title}`}
-                                  >
-                                    <Eye className="h-3.5 w-3.5" />
-                                  </Link>
-                                  <button
-                                    type="button"
-                                    onClick={() => startEdit(task)}
-                                    className="rounded-md p-1.5 text-text-tertiary transition-colors hover:bg-surface-hover hover:text-text"
-                                    aria-label={`Edit ${task.title}`}
-                                  >
-                                    <Pencil className="h-3.5 w-3.5" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => deleteTask(task.id)}
-                                    className="rounded-md p-1.5 text-text-tertiary transition-colors hover:bg-surface-hover hover:text-error"
-                                    aria-label={`Delete ${task.title}`}
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </Card>
-                </div>
-
                 {formOpen && (
-                  <Card>
+                  <Card className="order-1 xl:order-2">
                     <form onSubmit={handleSubmit} className="space-y-4">
                       <div className="flex items-start justify-between gap-3">
                         <div>
@@ -515,6 +427,99 @@ export default function AdminPage() {
                     </form>
                   </Card>
                 )}
+
+                <div className="order-2 space-y-4 xl:order-1">
+                  <div className="relative max-w-sm">
+                    <Search className="absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-text-tertiary" />
+                    <Input
+                      aria-label="Search admin tasks"
+                      placeholder="Search tasks..."
+                      value={search}
+                      onChange={(event) => setSearch(event.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+
+                  <Card padding="none">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-border">
+                            <th className="px-5 py-3 text-left text-xs font-medium text-text-secondary">
+                              Title
+                            </th>
+                            <th className="hidden px-5 py-3 text-left text-xs font-medium text-text-secondary sm:table-cell">
+                              Category
+                            </th>
+                            <th className="hidden px-5 py-3 text-left text-xs font-medium text-text-secondary md:table-cell">
+                              Difficulty
+                            </th>
+                            <th className="px-5 py-3 text-left text-xs font-medium text-text-secondary">
+                              Status
+                            </th>
+                            <th className="hidden px-5 py-3 text-left text-xs font-medium text-text-secondary sm:table-cell">
+                              Submissions
+                            </th>
+                            <th className="px-5 py-3 text-right text-xs font-medium text-text-secondary">
+                              Actions
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {filteredTasks.map((task) => (
+                            <tr key={task.id} className="hover:bg-surface-hover transition-colors">
+                              <td className="px-5 py-3">
+                                <p className="font-medium text-text">{task.title}</p>
+                                <p className="mt-0.5 text-xs text-text-tertiary">
+                                  {task.estimatedMinutes} min / {task.tags.slice(0, 2).join(", ")}
+                                </p>
+                              </td>
+                              <td className="hidden px-5 py-3 text-xs text-text-secondary sm:table-cell">
+                                {task.category}
+                              </td>
+                              <td className="hidden px-5 py-3 md:table-cell">
+                                <Badge variant="outline">{task.difficulty}</Badge>
+                              </td>
+                              <td className="px-5 py-3">
+                                <Badge variant={statusBadge[task.status]}>{task.status}</Badge>
+                              </td>
+                              <td className="hidden px-5 py-3 tabular-nums text-text-secondary sm:table-cell">
+                                {task.submissions}
+                              </td>
+                              <td className="px-5 py-3 text-right">
+                                <div className="flex items-center justify-end gap-1">
+                                  <Link
+                                    href={`/tasks/${task.id}`}
+                                    className="rounded-md p-1.5 text-text-tertiary transition-colors hover:bg-surface-hover hover:text-text"
+                                    aria-label={`View ${task.title}`}
+                                  >
+                                    <Eye className="h-3.5 w-3.5" />
+                                  </Link>
+                                  <button
+                                    type="button"
+                                    onClick={() => startEdit(task)}
+                                    className="rounded-md p-1.5 text-text-tertiary transition-colors hover:bg-surface-hover hover:text-text"
+                                    aria-label={`Edit ${task.title}`}
+                                  >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => deleteTask(task.id)}
+                                    className="rounded-md p-1.5 text-text-tertiary transition-colors hover:bg-surface-hover hover:text-error"
+                                    aria-label={`Delete ${task.title}`}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </Card>
+                </div>
               </div>
             ),
           },

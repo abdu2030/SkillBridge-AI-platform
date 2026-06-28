@@ -12,12 +12,20 @@ interface Tab {
 interface TabsProps {
   tabs: Tab[];
   defaultTab?: string;
+  activeTab?: string;
+  onTabChange?: (tabId: string) => void;
   className?: string;
 }
 
-export function Tabs({ tabs, defaultTab, className }: TabsProps) {
-  const [active, setActive] = useState(defaultTab || tabs[0]?.id || "");
+export function Tabs({ tabs, defaultTab, activeTab, onTabChange, className }: TabsProps) {
+  const [internalActive, setInternalActive] = useState(defaultTab || tabs[0]?.id || "");
+  const active = activeTab ?? internalActive;
   const current = tabs.find((t) => t.id === active);
+
+  function selectTab(tabId: string) {
+    setInternalActive(tabId);
+    onTabChange?.(tabId);
+  }
 
   return (
     <div className={className}>
@@ -25,7 +33,7 @@ export function Tabs({ tabs, defaultTab, className }: TabsProps) {
         {tabs.map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setActive(tab.id)}
+            onClick={() => selectTab(tab.id)}
             className={cn(
               "px-3 py-2 text-sm font-medium transition-colors border-b-2 -mb-px cursor-pointer",
               active === tab.id
