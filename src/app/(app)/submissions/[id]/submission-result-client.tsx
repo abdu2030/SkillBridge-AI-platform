@@ -1,6 +1,5 @@
 "use client";
 
-import { CodeEditor } from "@/components/workspace/code-editor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
@@ -156,14 +155,11 @@ export function SubmissionResultClient({ submission }: { submission: SubmissionR
             </div>
           </div>
 
-          <div className="h-[520px] min-h-[360px] bg-[#1e1e1e]">
+          <div className="min-h-[360px] bg-[#111827]">
             {activeFile ? (
-              <CodeEditor
-                fileName={activeFile.path}
-                value={activeFile.content}
-                onChange={() => undefined}
-                readOnly
-              />
+              <pre className="max-h-[560px] min-h-[360px] overflow-auto p-4 text-sm leading-6 text-gray-100">
+                <code>{activeFile.content}</code>
+              </pre>
             ) : (
               <div className="flex h-full items-center justify-center text-sm text-text-tertiary">
                 No submitted files were found.
