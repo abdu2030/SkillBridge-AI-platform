@@ -284,7 +284,7 @@ export default function WorkspacePage() {
           <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
             {/* File Tabs */}
             <div className="flex items-center border-b border-border bg-bg-card shrink-0 min-w-0">
-              <div className="flex min-w-0 flex-1 overflow-x-auto px-2">
+              <div className="scrollbar-none flex min-w-0 flex-1 overflow-x-auto px-2">
                 {files.map((f) => (
                   <button
                     key={f}
