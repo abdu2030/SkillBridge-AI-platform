@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { CodeEditor } from "@/components/workspace/code-editor";
 import {
   Play,
   Send,
@@ -21,7 +22,7 @@ import {
   Loader2,
 } from "lucide-react";
 
-const codeContent = `import csv
+const pythonStarter = `import csv
 from typing import List, Dict
 
 def parse_csv(file_path: str) -> List[Dict[str, str]]:
@@ -69,6 +70,47 @@ def parse_csv(file_path: str) -> List[Dict[str, str]]:
     
     return results`;
 
+const javascriptStarter = `export function normalizeRow(row) {
+  return Object.fromEntries(
+    Object.entries(row).map(([key, value]) => [key.trim(), String(value).trim()])
+  );
+}
+
+export function hasRequiredHeaders(headers) {
+  return Array.isArray(headers) && headers.every((header) => header.length > 0);
+}`;
+
+const dockerfileStarter = `FROM python:3.12-slim AS base
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+CMD ["python", "-m", "pytest"]`;
+
+const jsonStarter = `{
+  "task": "csv-parser",
+  "visibleTests": ["test_basic_csv", "test_empty_file", "test_quoted_commas"],
+  "hiddenTests": 5
+}`;
+
+const markdownStarter = `# Solution notes
+
+## Approach
+
+- Explain the parsing issue.
+- Describe the fix.
+- List edge cases covered by tests.`;
+
+const workspaceFiles = [
+  { name: "parser.py", content: pythonStarter },
+  { name: "helpers.js", content: javascriptStarter },
+  { name: "Dockerfile", content: dockerfileStarter },
+  { name: "task-config.json", content: jsonStarter },
+  { name: "solution-notes.md", content: markdownStarter },
+];
+
 const rubricItems = [
   { label: "Correctness", points: 40 },
   { label: "Edge cases", points: 20 },
@@ -85,13 +127,17 @@ const testResults = [
 
 export default function WorkspacePage() {
   const [activeFile, setActiveFile] = useState("parser.py");
+  const [fileContents, setFileContents] = useState(() =>
+    Object.fromEntries(workspaceFiles.map((file) => [file.name, file.content]))
+  );
   const [rightTab, setRightTab] = useState("rubric");
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "unsaved">("saved");
   const [testsRunning, setTestsRunning] = useState(false);
   const [testsRan, setTestsRan] = useState(false);
   const [leftCollapsed, setLeftCollapsed] = useState(false);
 
-  const files = ["parser.py", "test_parser.py", "sample_data.csv"];
+  const files = workspaceFiles.map((file) => file.name);
+  const activeContent = fileContents[activeFile] ?? "";
 
   const handleRunTests = () => {
     setTestsRunning(true);
@@ -105,6 +151,18 @@ export default function WorkspacePage() {
   const handleSave = () => {
     setSaveStatus("saving");
     setTimeout(() => setSaveStatus("saved"), 1000);
+  };
+
+  const handleReset = () => {
+    const starter = workspaceFiles.find((file) => file.name === activeFile);
+    if (!starter) return;
+    setFileContents((current) => ({ ...current, [activeFile]: starter.content }));
+    setSaveStatus("unsaved");
+  };
+
+  const handleEditorChange = (value: string) => {
+    setFileContents((current) => ({ ...current, [activeFile]: value }));
+    setSaveStatus("unsaved");
   };
 
   return (
@@ -207,88 +265,49 @@ export default function WorkspacePage() {
           {/* Center Panel - Code Editor */}
           <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
             {/* File Tabs */}
-            <div className="flex items-center gap-0 border-b border-border bg-bg-card px-2 shrink-0">
-              {files.map((f) => (
+            <div className="flex items-center border-b border-border bg-bg-card shrink-0 min-w-0">
+              <div className="flex min-w-0 flex-1 overflow-x-auto px-2">
+                {files.map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setActiveFile(f)}
+                    className={cn(
+                      "shrink-0 whitespace-nowrap px-3 py-2 text-xs font-mono border-b-2 -mb-px transition-colors cursor-pointer",
+                      activeFile === f
+                        ? "border-accent text-accent bg-bg"
+                        : "border-transparent text-text-secondary hover:text-text"
+                    )}
+                  >
+                    {f}
+                  </button>
+                ))}
+              </div>
+              <div className="flex shrink-0 items-center gap-1 border-l border-border bg-bg-card px-2">
                 <button
-                  key={f}
-                  onClick={() => setActiveFile(f)}
-                  className={cn(
-                    "px-3 py-2 text-xs font-mono border-b-2 -mb-px transition-colors cursor-pointer",
-                    activeFile === f
-                      ? "border-accent text-accent bg-bg"
-                      : "border-transparent text-text-secondary hover:text-text"
-                  )}
+                  onClick={handleSave}
+                  className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-text-secondary hover:bg-surface-hover hover:text-text transition-colors cursor-pointer"
+                  title="Save"
                 >
-                  {f}
+                  <Save className="w-3.5 h-3.5" />
+                  Save
                 </button>
-              ))}
-              <div className="flex-1" />
-              <button
-                onClick={handleSave}
-                className="p-1.5 text-text-tertiary hover:text-text transition-colors cursor-pointer"
-                title="Save"
-              >
-                <Save className="w-3.5 h-3.5" />
-              </button>
-              <button
-                className="p-1.5 text-text-tertiary hover:text-text transition-colors cursor-pointer"
-                title="Reset to starter code"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-              </button>
+                <button
+                  onClick={handleReset}
+                  className="p-1.5 text-text-tertiary hover:text-text transition-colors cursor-pointer"
+                  title="Reset to starter code"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
 
             {/* Code Area */}
-            <div className="flex-1 overflow-auto bg-[#1e1e2e] relative">
-              <div className="flex">
-                {/* Line numbers */}
-                <div className="py-4 px-3 text-right select-none shrink-0">
-                  {codeContent.split("\n").map((_, i) => (
-                    <div key={i} className="text-xs leading-6 text-gray-600 font-mono tabular-nums">
-                      {i + 1}
-                    </div>
-                  ))}
-                </div>
-                {/* Code */}
-                <pre className="py-4 pr-4 overflow-x-auto flex-1">
-                  <code className="text-xs leading-6 font-mono text-gray-300">
-                    {codeContent.split("\n").map((line, i) => (
-                      <div key={i} className="hover:bg-white/5">
-                        {line.startsWith("import") || line.startsWith("from") ? (
-                          <span>
-                            <span className="text-purple-400">{line.split(" ")[0]}</span>{" "}
-                            <span className="text-blue-300">
-                              {line.slice(line.indexOf(" ") + 1)}
-                            </span>
-                          </span>
-                        ) : line.startsWith("def ") ? (
-                          <span>
-                            <span className="text-purple-400">def </span>
-                            <span className="text-yellow-300">
-                              {line.slice(4, line.indexOf("("))}
-                            </span>
-                            <span className="text-gray-300">{line.slice(line.indexOf("("))}</span>
-                          </span>
-                        ) : line.trim().startsWith("#") ? (
-                          <span className="text-gray-500">{line}</span>
-                        ) : line.trim().startsWith('"""') || line.trim().startsWith("'''") ? (
-                          <span className="text-green-400">{line}</span>
-                        ) : line.includes("raise") ? (
-                          <span>
-                            <span className="text-white/30">
-                              {line.slice(0, line.indexOf("raise"))}
-                            </span>
-                            <span className="text-red-400">raise</span>
-                            {line.slice(line.indexOf("raise") + 5)}
-                          </span>
-                        ) : (
-                          <span>{line}</span>
-                        )}
-                      </div>
-                    ))}
-                  </code>
-                </pre>
-              </div>
+            <div className="flex-1 overflow-hidden bg-[#1e1e2e] relative">
+              <CodeEditor
+                fileName={activeFile}
+                value={activeContent}
+                onChange={handleEditorChange}
+              />
             </div>
           </div>
 
