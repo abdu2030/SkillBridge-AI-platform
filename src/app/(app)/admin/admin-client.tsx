@@ -1,6 +1,6 @@
 "use client";
 
-import { updateTaskPublishStatus } from "@/app/(app)/admin/actions";
+import { saveAdminTask, updateTaskPublishStatus } from "@/app/(app)/admin/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
@@ -182,6 +182,12 @@ function difficultyFromDatabase(value: string): TaskDifficulty {
   return "Intermediate";
 }
 
+function difficultyToDatabase(value: TaskDifficulty) {
+  if (value === "Beginner") return "beginner";
+  if (value === "Advanced") return "advanced";
+  return "intermediate";
+}
+
 interface DbAdminTaskRow {
   id: string;
   slug: string;
@@ -226,6 +232,7 @@ export function AdminClient() {
   const [formMessage, setFormMessage] = useState("");
   const [tableMessage, setTableMessage] = useState("");
   const [activeTab, setActiveTab] = useState("tasks");
+  const [isSaving, startSavingTransition] = useTransition();
   const [isPublishing, startPublishingTransition] = useTransition();
 
   useEffect(() => {
@@ -316,14 +323,12 @@ export function AdminClient() {
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
+    const existingTask = editingId ? adminTasks.find((task) => task.id === editingId) : null;
+    const slug = existingTask?.slug ?? createSlug(form.title);
     const nextTask: AdminTask = {
-      id: editingId ?? createSlug(form.title),
-      databaseId: editingId
-        ? (adminTasks.find((task) => task.id === editingId)?.databaseId ?? null)
-        : null,
-      slug: editingId
-        ? (adminTasks.find((task) => task.id === editingId)?.slug ?? createSlug(form.title))
-        : createSlug(form.title),
+      id: existingTask?.id ?? slug,
+      databaseId: existingTask?.databaseId ?? null,
+      slug,
       title: form.title.trim(),
       category: form.category,
       difficulty: form.difficulty,
@@ -337,22 +342,50 @@ export function AdminClient() {
       summary: form.summary.trim(),
       instructions: form.instructions.trim(),
       starterCode: form.starterCode,
-      submissions: editingId
-        ? (adminTasks.find((task) => task.id === editingId)?.submissions ?? 0)
-        : 0,
+      submissions: existingTask?.submissions ?? 0,
     };
 
-    setAdminTasks((current) => {
-      if (editingId) {
-        return current.map((task) => (task.id === editingId ? nextTask : task));
+    setFormMessage("Saving task...");
+
+    startSavingTransition(async () => {
+      const result = await saveAdminTask({
+        taskId: nextTask.databaseId,
+        slug: nextTask.slug,
+        title: nextTask.title,
+        summary: nextTask.summary,
+        instructions: nextTask.instructions,
+        category: nextTask.category,
+        difficulty: difficultyToDatabase(nextTask.difficulty),
+        estimatedMinutes: nextTask.estimatedMinutes,
+        tags: nextTask.tags,
+        status: nextTask.publishStatus,
+        starterCode: nextTask.starterCode,
+      });
+
+      if (!result.ok) {
+        setFormMessage(result.message);
+        return;
       }
 
-      return [nextTask, ...current.filter((task) => task.id !== nextTask.id)];
-    });
+      const savedTask = {
+        ...nextTask,
+        databaseId: result.taskId ?? nextTask.databaseId,
+        slug: result.slug ?? nextTask.slug,
+        id: result.slug ?? nextTask.id,
+      };
 
-    setEditingId(nextTask.id);
-    setForm(formFromTask(nextTask));
-    setFormMessage(editingId ? "Task updated." : "Task created.");
+      setAdminTasks((current) => {
+        if (editingId) {
+          return current.map((task) => (task.id === editingId ? savedTask : task));
+        }
+
+        return [savedTask, ...current.filter((task) => task.id !== savedTask.id)];
+      });
+
+      setEditingId(savedTask.id);
+      setForm(formFromTask(savedTask));
+      setFormMessage(result.message);
+    });
   }
 
   function changePublishStatus(task: AdminTask, status: DbPublishStatus) {
@@ -554,9 +587,9 @@ export function AdminClient() {
 
                       <div className="flex items-center justify-between gap-3">
                         <p className="text-xs text-success">{formMessage}</p>
-                        <Button type="submit">
+                        <Button type="submit" disabled={isSaving}>
                           <Save className="h-4 w-4" />
-                          {editingId ? "Save changes" : "Create task"}
+                          {isSaving ? "Saving..." : editingId ? "Save changes" : "Create task"}
                         </Button>
                       </div>
                     </form>
