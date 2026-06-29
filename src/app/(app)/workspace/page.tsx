@@ -175,6 +175,22 @@ export default function WorkspacePage() {
     () => files.map((name) => ({ name, content: fileContents[name] ?? "" })),
     [fileContents, files]
   );
+  const workspaceBadge =
+    submissionStatus === "submitted"
+      ? { label: "Submitted", variant: "success" as const }
+      : saveStatus === "saving"
+        ? { label: "Saving...", variant: "accent" as const }
+        : saveStatus === "error"
+          ? { label: "Save failed", variant: "error" as const }
+          : saveStatus === "unsaved"
+            ? { label: "Unsaved draft", variant: "warning" as const }
+            : {
+                label:
+                  saveMessage === "Draft saved" || saveMessage === "Autosaved"
+                    ? saveMessage
+                    : "Saved draft",
+                variant: "success" as const,
+              };
 
   useEffect(() => {
     if (!lastSavedAt || saveStatus !== "saved") return;
@@ -295,9 +311,7 @@ export default function WorkspacePage() {
           <div className="flex items-center gap-3">
             <h2 className="text-sm font-semibold text-text">Fix broken Python CSV parser</h2>
             <Badge variant="outline">Intermediate</Badge>
-            <Badge variant={submissionStatus === "submitted" ? "success" : "warning"}>
-              {submissionStatus === "submitted" ? "Submitted" : "Draft"}
-            </Badge>
+            <Badge variant={workspaceBadge.variant}>{workspaceBadge.label}</Badge>
           </div>
           <div className="flex items-center gap-2 text-xs text-text-tertiary">
             <Clock className="w-3 h-3" />
