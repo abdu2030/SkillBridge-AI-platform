@@ -1,5 +1,10 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import {
+  saveWorkspaceDraft,
+  submitWorkspaceSolution,
+  type WorkspaceFileSnapshot,
+} from "@/app/(app)/workspace/actions";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +26,9 @@ import {
   Save,
   Loader2,
 } from "lucide-react";
+
+const TASK_SLUG = "csv-parser";
+const AUTOSAVE_INTERVAL_MS = 5000;
 
 const pythonStarter = `import csv
 from typing import List, Dict
@@ -111,6 +119,8 @@ const workspaceFiles = [
   { name: "solution-notes.md", content: markdownStarter },
 ];
 
+const fileNames = workspaceFiles.map((file) => file.name);
+
 const rubricItems = [
   { label: "Correctness", points: 40 },
   { label: "Edge cases", points: 20 },
@@ -125,6 +135,21 @@ const testResults = [
   { name: "test_quoted_commas", status: "fail" as const, time: "0.03s" },
 ];
 
+type SaveStatus = "saved" | "saving" | "unsaved" | "error";
+type SubmissionStatus = "draft" | "submitted";
+
+function formatLastSaved(savedAt: Date | null) {
+  if (!savedAt) return "Saved";
+
+  const elapsedSeconds = Math.max(Math.floor((Date.now() - savedAt.getTime()) / 1000), 0);
+  if (elapsedSeconds < 10) return "Saved";
+  if (elapsedSeconds < 60) return `Last saved ${elapsedSeconds} seconds ago`;
+
+  const elapsedMinutes = Math.floor(elapsedSeconds / 60);
+  if (elapsedMinutes === 1) return "Last saved 1 minute ago";
+  return `Last saved ${elapsedMinutes} minutes ago`;
+}
+
 export default function WorkspacePage() {
   const [activeFile, setActiveFile] = useState("parser.py");
   const [fileContents, setFileContents] = useState(() =>
@@ -132,14 +157,44 @@ export default function WorkspacePage() {
   );
   const [dirtyFiles, setDirtyFiles] = useState<Set<string>>(new Set());
   const [rightTab, setRightTab] = useState("rubric");
-  const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "unsaved">("saved");
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved");
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [saveMessage, setSaveMessage] = useState("Saved");
+  const [submissionStatus, setSubmissionStatus] = useState<SubmissionStatus>("draft");
+  const [submittedAt, setSubmittedAt] = useState<Date | null>(null);
+  const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
   const [testsRunning, setTestsRunning] = useState(false);
   const [testsRan, setTestsRan] = useState(false);
   const [leftCollapsed, setLeftCollapsed] = useState(false);
+  const [isSavePending, startSaveTransition] = useTransition();
+  const [isSubmitPending, startSubmitTransition] = useTransition();
 
-  const files = workspaceFiles.map((file) => file.name);
+  const files = fileNames;
   const activeContent = fileContents[activeFile] ?? "";
-  const activeFileDirty = dirtyFiles.has(activeFile);
+  const fileSnapshot = useMemo<WorkspaceFileSnapshot[]>(
+    () => files.map((name) => ({ name, content: fileContents[name] ?? "" })),
+    [fileContents, files]
+  );
+
+  useEffect(() => {
+    if (!lastSavedAt || saveStatus !== "saved") return;
+
+    const timer = window.setInterval(() => {
+      setSaveMessage(formatLastSaved(lastSavedAt));
+    }, 15000);
+
+    return () => window.clearInterval(timer);
+  }, [lastSavedAt, saveStatus]);
+
+  useEffect(() => {
+    if (dirtyFiles.size === 0 || submissionStatus === "submitted") return;
+
+    const timer = window.setTimeout(() => {
+      saveDraft("Autosaved");
+    }, AUTOSAVE_INTERVAL_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [dirtyFiles, fileSnapshot, submissionStatus]);
 
   const handleRunTests = () => {
     setTestsRunning(true);
@@ -150,17 +205,34 @@ export default function WorkspacePage() {
     }, 2000);
   };
 
-  const handleSave = () => {
-    const fileToSave = activeFile;
+  const saveDraft = (successMessage = "Draft saved") => {
+    if (dirtyFiles.size === 0 && saveStatus === "saved") return;
+
     setSaveStatus("saving");
-    setTimeout(() => {
-      setDirtyFiles((current) => {
-        const next = new Set(current);
-        next.delete(fileToSave);
-        return next;
+    setSaveMessage("Saving...");
+
+    startSaveTransition(async () => {
+      const result = await saveWorkspaceDraft({
+        taskSlug: TASK_SLUG,
+        files: fileSnapshot,
       });
+
+      if (!result.ok) {
+        setSaveStatus("error");
+        setSaveMessage(result.message);
+        return;
+      }
+
+      const savedAt = result.savedAt ? new Date(result.savedAt) : new Date();
+      setDirtyFiles(new Set());
+      setLastSavedAt(savedAt);
       setSaveStatus("saved");
-    }, 1000);
+      setSaveMessage(successMessage);
+    });
+  };
+
+  const handleSave = () => {
+    saveDraft("Draft saved");
   };
 
   const handleReset = () => {
@@ -169,17 +241,50 @@ export default function WorkspacePage() {
     setFileContents((current) => ({ ...current, [activeFile]: starter.content }));
     setDirtyFiles((current) => new Set(current).add(activeFile));
     setSaveStatus("unsaved");
+    setSaveMessage(`Unsaved changes in ${activeFile}`);
   };
 
   const handleEditorChange = (value: string) => {
+    if (submissionStatus === "submitted") return;
     setFileContents((current) => ({ ...current, [activeFile]: value }));
     setDirtyFiles((current) => new Set(current).add(activeFile));
     setSaveStatus("unsaved");
+    setSaveMessage(`Unsaved changes in ${activeFile}`);
   };
 
   const handleFileSelect = (fileName: string) => {
     setActiveFile(fileName);
     setSaveStatus(dirtyFiles.has(fileName) ? "unsaved" : "saved");
+    setSaveMessage(
+      dirtyFiles.has(fileName) ? `Unsaved changes in ${fileName}` : formatLastSaved(lastSavedAt)
+    );
+  };
+
+  const handleSubmitSolution = () => {
+    setConfirmSubmitOpen(false);
+    setSaveStatus("saving");
+    setSaveMessage("Submitting solution...");
+
+    startSubmitTransition(async () => {
+      const result = await submitWorkspaceSolution({
+        taskSlug: TASK_SLUG,
+        files: fileSnapshot,
+      });
+
+      if (!result.ok) {
+        setSaveStatus("error");
+        setSaveMessage(result.message);
+        return;
+      }
+
+      const completedAt = result.submittedAt ? new Date(result.submittedAt) : new Date();
+      setDirtyFiles(new Set());
+      setLastSavedAt(completedAt);
+      setSubmittedAt(completedAt);
+      setSubmissionStatus("submitted");
+      setSaveStatus("saved");
+      setSaveMessage("Submitted for review");
+    });
   };
 
   return (
@@ -190,6 +295,9 @@ export default function WorkspacePage() {
           <div className="flex items-center gap-3">
             <h2 className="text-sm font-semibold text-text">Fix broken Python CSV parser</h2>
             <Badge variant="outline">Intermediate</Badge>
+            <Badge variant={submissionStatus === "submitted" ? "success" : "warning"}>
+              {submissionStatus === "submitted" ? "Submitted" : "Draft"}
+            </Badge>
           </div>
           <div className="flex items-center gap-2 text-xs text-text-tertiary">
             <Clock className="w-3 h-3" />
@@ -304,15 +412,17 @@ export default function WorkspacePage() {
               <div className="flex shrink-0 items-center gap-1 border-l border-border bg-bg-card px-2">
                 <button
                   onClick={handleSave}
-                  className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-text-secondary hover:bg-surface-hover hover:text-text transition-colors cursor-pointer"
+                  disabled={submissionStatus === "submitted" || isSavePending}
+                  className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-text-secondary hover:bg-surface-hover hover:text-text transition-colors cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
                   title="Save"
                 >
                   <Save className="w-3.5 h-3.5" />
-                  Save
+                  {isSavePending ? "Saving" : "Save"}
                 </button>
                 <button
                   onClick={handleReset}
-                  className="p-1.5 text-text-tertiary hover:text-text transition-colors cursor-pointer"
+                  disabled={submissionStatus === "submitted"}
+                  className="p-1.5 text-text-tertiary hover:text-text transition-colors cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
                   title="Reset to starter code"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
@@ -326,6 +436,7 @@ export default function WorkspacePage() {
                 fileName={activeFile}
                 value={activeContent}
                 onChange={handleEditorChange}
+                readOnly={submissionStatus === "submitted"}
               />
             </div>
           </div>
@@ -440,30 +551,72 @@ export default function WorkspacePage() {
           <div className="flex items-center gap-2 text-xs">
             {saveStatus === "saving" ? (
               <span className="flex items-center gap-1.5 text-text-tertiary">
-                <Loader2 className="w-3 h-3 animate-spin" /> Saving…
+                <Loader2 className="w-3 h-3 animate-spin" /> {saveMessage}
               </span>
+            ) : saveStatus === "error" ? (
+              <span className="text-error">{saveMessage}</span>
             ) : saveStatus === "saved" ? (
               <span className="flex items-center gap-1.5 text-text-tertiary">
-                <CheckCircle2 className="w-3 h-3 text-success" /> Last saved 42 seconds ago
+                <CheckCircle2 className="w-3 h-3 text-success" /> {saveMessage}
+                {submittedAt && (
+                  <span className="text-text-tertiary">
+                    / Submitted{" "}
+                    {submittedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                )}
               </span>
             ) : (
-              <span className="text-warning">
-                Unsaved changes in {activeFileDirty ? activeFile : "this workspace"}
-              </span>
+              <span className="text-warning">{saveMessage}</span>
             )}
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="secondary" size="sm" onClick={handleRunTests} loading={testsRunning}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleRunTests}
+              loading={testsRunning}
+              disabled={submissionStatus === "submitted"}
+            >
               <Play className="w-3.5 h-3.5" />
               Run tests
             </Button>
-            <Button size="sm">
+            <Button
+              size="sm"
+              onClick={() => setConfirmSubmitOpen(true)}
+              disabled={submissionStatus === "submitted" || isSubmitPending}
+              loading={isSubmitPending}
+            >
               <Send className="w-3.5 h-3.5" />
-              Submit solution
+              {submissionStatus === "submitted" ? "Submitted" : "Submit solution"}
             </Button>
           </div>
         </div>
       </div>
+
+      {confirmSubmitOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 px-4">
+          <div className="w-full max-w-md rounded-lg border border-border bg-bg-card p-5 shadow-card">
+            <h3 className="text-sm font-semibold text-text">Submit solution?</h3>
+            <p className="mt-2 text-sm leading-relaxed text-text-secondary">
+              This sends your current files for review. After submission, this workspace becomes
+              read-only for this attempt.
+            </p>
+            {dirtyFiles.size > 0 && (
+              <p className="mt-3 rounded-md bg-warning-light px-3 py-2 text-xs text-warning">
+                Unsaved changes will be included in the final submission.
+              </p>
+            )}
+            <div className="mt-5 flex justify-end gap-2">
+              <Button type="button" variant="secondary" onClick={() => setConfirmSubmitOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="button" onClick={handleSubmitSolution} loading={isSubmitPending}>
+                Submit for review
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

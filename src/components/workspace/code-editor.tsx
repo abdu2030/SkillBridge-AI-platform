@@ -75,9 +75,10 @@ interface CodeEditorProps {
   fileName: string;
   value: string;
   onChange: (value: string) => void;
+  readOnly?: boolean;
 }
 
-export function CodeEditor({ fileName, value, onChange }: CodeEditorProps) {
+export function CodeEditor({ fileName, value, onChange, readOnly }: CodeEditorProps) {
   const language = getEditorLanguage(fileName);
 
   const handleBeforeMount = useCallback<BeforeMount>((monaco) => {
@@ -113,6 +114,7 @@ export function CodeEditor({ fileName, value, onChange }: CodeEditorProps) {
         lineHeight: 22,
         minimap: { enabled: false },
         padding: { top: 16, bottom: 16 },
+        readOnly,
         scrollBeyondLastLine: false,
         smoothScrolling: true,
         tabSize: 2,

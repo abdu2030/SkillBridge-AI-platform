@@ -21,6 +21,7 @@ Run SQL migrations from `supabase/migrations` in order before testing auth-depen
 
 1. `0001_foundation.sql`
 2. `0002_task_library.sql`
+3. `0003_submissions.sql`
 
 After at least one admin user exists, run `supabase/seed.sql` to add the sample Python debugging,
 Dockerfile fixing, Git workflow, and AI code review tasks.
