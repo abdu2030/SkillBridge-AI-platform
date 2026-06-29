@@ -130,6 +130,7 @@ export default function WorkspacePage() {
   const [fileContents, setFileContents] = useState(() =>
     Object.fromEntries(workspaceFiles.map((file) => [file.name, file.content]))
   );
+  const [dirtyFiles, setDirtyFiles] = useState<Set<string>>(new Set());
   const [rightTab, setRightTab] = useState("rubric");
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "unsaved">("saved");
   const [testsRunning, setTestsRunning] = useState(false);
@@ -138,6 +139,7 @@ export default function WorkspacePage() {
 
   const files = workspaceFiles.map((file) => file.name);
   const activeContent = fileContents[activeFile] ?? "";
+  const activeFileDirty = dirtyFiles.has(activeFile);
 
   const handleRunTests = () => {
     setTestsRunning(true);
@@ -149,20 +151,35 @@ export default function WorkspacePage() {
   };
 
   const handleSave = () => {
+    const fileToSave = activeFile;
     setSaveStatus("saving");
-    setTimeout(() => setSaveStatus("saved"), 1000);
+    setTimeout(() => {
+      setDirtyFiles((current) => {
+        const next = new Set(current);
+        next.delete(fileToSave);
+        return next;
+      });
+      setSaveStatus("saved");
+    }, 1000);
   };
 
   const handleReset = () => {
     const starter = workspaceFiles.find((file) => file.name === activeFile);
     if (!starter) return;
     setFileContents((current) => ({ ...current, [activeFile]: starter.content }));
+    setDirtyFiles((current) => new Set(current).add(activeFile));
     setSaveStatus("unsaved");
   };
 
   const handleEditorChange = (value: string) => {
     setFileContents((current) => ({ ...current, [activeFile]: value }));
+    setDirtyFiles((current) => new Set(current).add(activeFile));
     setSaveStatus("unsaved");
+  };
+
+  const handleFileSelect = (fileName: string) => {
+    setActiveFile(fileName);
+    setSaveStatus(dirtyFiles.has(fileName) ? "unsaved" : "saved");
   };
 
   return (
@@ -232,7 +249,7 @@ export default function WorkspacePage() {
                   {files.map((f) => (
                     <button
                       key={f}
-                      onClick={() => setActiveFile(f)}
+                      onClick={() => handleFileSelect(f)}
                       className={cn(
                         "flex items-center gap-2 w-full px-3 py-1.5 rounded-md text-xs font-mono transition-colors cursor-pointer",
                         activeFile === f
@@ -241,7 +258,8 @@ export default function WorkspacePage() {
                       )}
                     >
                       <FileCode className="w-3 h-3" />
-                      {f}
+                      <span className="min-w-0 flex-1 truncate text-left">{f}</span>
+                      {dirtyFiles.has(f) && <span className="text-warning">*</span>}
                     </button>
                   ))}
                 </div>
@@ -270,7 +288,7 @@ export default function WorkspacePage() {
                 {files.map((f) => (
                   <button
                     key={f}
-                    onClick={() => setActiveFile(f)}
+                    onClick={() => handleFileSelect(f)}
                     className={cn(
                       "shrink-0 whitespace-nowrap px-3 py-2 text-xs font-mono border-b-2 -mb-px transition-colors cursor-pointer",
                       activeFile === f
@@ -279,6 +297,7 @@ export default function WorkspacePage() {
                     )}
                   >
                     {f}
+                    {dirtyFiles.has(f) && <span className="ml-1 text-warning">*</span>}
                   </button>
                 ))}
               </div>
@@ -428,7 +447,9 @@ export default function WorkspacePage() {
                 <CheckCircle2 className="w-3 h-3 text-success" /> Last saved 42 seconds ago
               </span>
             ) : (
-              <span className="text-warning">Unsaved changes</span>
+              <span className="text-warning">
+                Unsaved changes in {activeFileDirty ? activeFile : "this workspace"}
+              </span>
             )}
           </div>
           <div className="flex items-center gap-2">
