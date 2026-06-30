@@ -3,6 +3,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { SubmissionResult } from "@/lib/submissions/data";
 import { cn } from "@/lib/utils";
 import {
@@ -36,6 +37,10 @@ const statusCopy: Record<SubmissionResult["status"], string> = {
 
 export function SubmissionResultClient({ submission }: { submission: SubmissionResult }) {
   const [activeFilePath, setActiveFilePath] = useState(submission.files[0]?.path ?? "");
+  const [isGeneratingFeedback, setIsGeneratingFeedback] = useState(false);
+  const [feedbackReady, setFeedbackReady] = useState(submission.feedbackReady);
+  const [feedbackMessage, setFeedbackMessage] = useState("");
+  const [score, setScore] = useState(submission.score);
   const activeFile = useMemo(
     () => submission.files.find((file) => file.path === activeFilePath) ?? submission.files[0],
     [activeFilePath, submission.files]
@@ -43,6 +48,36 @@ export function SubmissionResultClient({ submission }: { submission: SubmissionR
 
   const earnedPoints = submission.rubricPreview.reduce((total, item) => total + item.points, 0);
   const maxPoints = submission.rubricPreview.reduce((total, item) => total + item.maxPoints, 0);
+
+  async function generateFeedback() {
+    setIsGeneratingFeedback(true);
+    setFeedbackMessage("");
+
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const { data, error } = await supabase.functions.invoke("ai-feedback", {
+        body: {
+          submissionId: submission.id,
+          visibleTestResults: "Manual app request: visible test results pending.",
+        },
+      });
+
+      if (error) {
+        setFeedbackMessage(error.message || "AI feedback could not be generated.");
+        return;
+      }
+
+      setScore(typeof data?.score === "number" ? data.score : score);
+      setFeedbackReady(true);
+      setFeedbackMessage("AI feedback generated and saved.");
+    } catch (error) {
+      setFeedbackMessage(
+        error instanceof Error ? error.message : "AI feedback could not be generated."
+      );
+    } finally {
+      setIsGeneratingFeedback(false);
+    }
+  }
 
   return (
     <div className="max-w-7xl space-y-6">
@@ -98,7 +133,7 @@ export function SubmissionResultClient({ submission }: { submission: SubmissionR
           <div>
             <p className="text-xs text-text-tertiary">Score</p>
             <p className="text-sm font-semibold text-text">
-              {submission.score === null ? "Pending" : `${submission.score}%`}
+              {score === null ? "Pending" : `${score}%`}
             </p>
           </div>
         </Card>
@@ -110,7 +145,7 @@ export function SubmissionResultClient({ submission }: { submission: SubmissionR
           <div>
             <p className="text-xs text-text-tertiary">Rubric points</p>
             <p className="text-sm font-semibold text-text">
-              {submission.feedbackReady ? `${earnedPoints}/${maxPoints}` : "Pending"}
+              {feedbackReady ? `${earnedPoints}/${maxPoints}` : "Pending"}
             </p>
           </div>
         </Card>
@@ -177,14 +212,14 @@ export function SubmissionResultClient({ submission }: { submission: SubmissionR
               <div>
                 <CardTitle>Feedback</CardTitle>
                 <CardDescription>
-                  {submission.feedbackReady
+                  {feedbackReady
                     ? `Reviewed by ${submission.reviewedBy}.`
                     : "Detailed feedback will appear after review."}
                 </CardDescription>
               </div>
             </div>
 
-            {submission.feedbackReady ? (
+            {feedbackReady ? (
               <div className="space-y-3">
                 <div className="rounded-lg border border-border bg-surface px-3 py-3 text-sm leading-relaxed text-text-secondary">
                   AI feedback is ready with score cards, strengths, weaknesses, and improvement
@@ -196,15 +231,46 @@ export function SubmissionResultClient({ submission }: { submission: SubmissionR
                     <ArrowRight className="h-3.5 w-3.5" />
                   </Button>
                 </Link>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="w-full"
+                  loading={isGeneratingFeedback}
+                  onClick={generateFeedback}
+                >
+                  Regenerate AI feedback
+                </Button>
               </div>
             ) : (
-              <div className="rounded-lg border border-dashed border-border bg-surface px-3 py-6 text-center">
-                <p className="text-sm font-medium text-text">Review pending</p>
-                <p className="mt-1 text-xs leading-relaxed text-text-secondary">
-                  Your code snapshot is saved. The feedback section will unlock once the submission
-                  is reviewed.
-                </p>
+              <div className="space-y-3">
+                <div className="rounded-lg border border-dashed border-border bg-surface px-3 py-6 text-center">
+                  <p className="text-sm font-medium text-text">Review pending</p>
+                  <p className="mt-1 text-xs leading-relaxed text-text-secondary">
+                    Your code snapshot is saved. Generate AI feedback from this page while signed
+                    in.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="w-full"
+                  loading={isGeneratingFeedback}
+                  onClick={generateFeedback}
+                >
+                  Generate AI feedback
+                </Button>
               </div>
+            )}
+            {feedbackMessage && (
+              <p
+                className={cn(
+                  "mt-3 text-xs leading-relaxed",
+                  feedbackReady ? "text-success" : "text-error"
+                )}
+              >
+                {feedbackMessage}
+              </p>
             )}
           </Card>
 
@@ -216,7 +282,7 @@ export function SubmissionResultClient({ submission }: { submission: SubmissionR
                   <div className="flex items-start justify-between gap-3">
                     <p className="text-sm font-medium text-text">{item.label}</p>
                     <span className="shrink-0 text-xs font-semibold text-text-secondary">
-                      {submission.feedbackReady ? `${item.points}/${item.maxPoints}` : "Pending"}
+                      {feedbackReady ? `${item.points}/${item.maxPoints}` : "Pending"}
                     </span>
                   </div>
                   <p className="mt-1 text-xs leading-relaxed text-text-secondary">{item.note}</p>
