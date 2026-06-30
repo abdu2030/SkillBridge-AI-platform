@@ -1,6 +1,7 @@
 "use server";
 
 import { requireReviewerProfile } from "@/lib/auth/server";
+import { refreshUserSkillProgress } from "@/lib/progress/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
@@ -118,6 +119,8 @@ export async function saveManualReview(input: SaveReviewInput) {
   if (updateError) {
     return { ok: false, message: updateError.message };
   }
+
+  await refreshUserSkillProgress(submission.user_id);
 
   revalidatePath("/reviewer");
   revalidatePath(`/reviewer/${submission.id}`);
