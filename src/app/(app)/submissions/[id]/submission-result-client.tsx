@@ -185,9 +185,17 @@ export function SubmissionResultClient({ submission }: { submission: SubmissionR
             </div>
 
             {submission.feedbackReady ? (
-              <div className="rounded-lg border border-border bg-surface px-3 py-3 text-sm leading-relaxed text-text-secondary">
-                Placeholder feedback area ready for AI and reviewer notes. The next step can connect
-                this panel to generated comments, test failures, and reviewer decisions.
+              <div className="space-y-3">
+                <div className="rounded-lg border border-border bg-surface px-3 py-3 text-sm leading-relaxed text-text-secondary">
+                  AI feedback is ready with score cards, strengths, weaknesses, and improvement
+                  suggestions.
+                </div>
+                <Link href="/feedback">
+                  <Button variant="secondary" size="sm" className="w-full">
+                    Open full feedback
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Button>
+                </Link>
               </div>
             ) : (
               <div className="rounded-lg border border-dashed border-border bg-surface px-3 py-6 text-center">

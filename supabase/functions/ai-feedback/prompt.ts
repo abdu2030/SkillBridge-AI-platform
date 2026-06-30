@@ -84,8 +84,17 @@ Required JSON shape:
 {
   "score": number,
   "summary": string,
+  "category_scores": {
+    "correctness": { "score": number, "reason": string },
+    "efficiency": { "score": number, "reason": string },
+    "readability": { "score": number, "reason": string },
+    "edge_cases": { "score": number, "reason": string },
+    "maintainability": { "score": number, "reason": string },
+    "security": { "score": number, "reason": string }
+  },
   "strengths": string[],
-  "improvements": string[],
+  "weaknesses": string[],
+  "improvement_suggestions": string[],
   "visible_test_assessment": string,
   "rubric_scores": [
     {
@@ -100,6 +109,14 @@ Required JSON shape:
 
 Scoring rules:
 - Score must be an integer from 0 to 100.
+- Each category score must be an integer from 0 to 100.
+- Category score meanings:
+  - correctness: Does the solution satisfy the task and pass expected behavior?
+  - efficiency: Is the approach performant for realistic input sizes?
+  - readability: Is the code easy to read, understand, and review?
+  - edge_cases: Does it handle boundary cases and unusual inputs?
+  - maintainability: Is the solution easy to extend, test, and safely change?
+  - security: Does it avoid unsafe patterns, injection risks, exposed secrets, and risky file/process behavior?
 - Award rubric points based only on the provided evidence.
 - Be direct and professional.
 - Prefer specific fixes over generic advice.

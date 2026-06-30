@@ -66,6 +66,25 @@ function normalizeScore(value: unknown) {
   return Math.max(0, Math.min(100, Math.round(score)));
 }
 
+function getCategoryScore(feedback: Record<string, unknown>, key: string) {
+  const categoryScores = feedback.category_scores as Record<string, unknown> | undefined;
+  const category = categoryScores?.[key] as Record<string, unknown> | undefined;
+  const score = normalizeScore(category?.score);
+
+  if (score === null) {
+    throw new Error(`Gemini feedback did not include a valid ${key} score.`);
+  }
+
+  return score;
+}
+
+function getStringArray(feedback: Record<string, unknown>, key: string) {
+  const value = feedback[key];
+  if (!Array.isArray(value)) return [];
+
+  return value.filter((item): item is string => typeof item === "string");
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -218,11 +237,60 @@ Deno.serve(async (req) => {
       throw new Error("Gemini returned an empty response.");
     }
 
-    const feedback = JSON.parse(extractJson(text));
+    const feedback = JSON.parse(extractJson(text)) as Record<string, unknown>;
     const score = normalizeScore(feedback.score);
 
     if (score === null) {
       throw new Error("Gemini feedback did not include a numeric score.");
+    }
+
+    const categoryScores = {
+      correctness: getCategoryScore(feedback, "correctness"),
+      efficiency: getCategoryScore(feedback, "efficiency"),
+      readability: getCategoryScore(feedback, "readability"),
+      edge_cases: getCategoryScore(feedback, "edge_cases"),
+      maintainability: getCategoryScore(feedback, "maintainability"),
+      security: getCategoryScore(feedback, "security"),
+    };
+
+    const summary =
+      typeof feedback.summary === "string"
+        ? feedback.summary
+        : "AI feedback was generated for this submission.";
+    const visibleTestAssessment =
+      typeof feedback.visible_test_assessment === "string"
+        ? feedback.visible_test_assessment
+        : null;
+    const rubricScores = Array.isArray(feedback.rubric_scores) ? feedback.rubric_scores : [];
+
+    const { error: feedbackError } = await adminClient.from("submission_feedback").upsert(
+      {
+        submission_id: submission.id,
+        user_id: submission.user_id,
+        task_id: submission.task_id,
+        ai_model: geminiModel,
+        overall_score: score,
+        correctness_score: categoryScores.correctness,
+        efficiency_score: categoryScores.efficiency,
+        readability_score: categoryScores.readability,
+        edge_cases_score: categoryScores.edge_cases,
+        maintainability_score: categoryScores.maintainability,
+        security_score: categoryScores.security,
+        summary,
+        strengths: getStringArray(feedback, "strengths"),
+        weaknesses: getStringArray(feedback, "weaknesses"),
+        improvement_suggestions: getStringArray(feedback, "improvement_suggestions"),
+        next_steps: getStringArray(feedback, "next_steps"),
+        visible_test_assessment: visibleTestAssessment,
+        rubric_scores: rubricScores,
+        raw_feedback: feedback,
+        generated_at: new Date().toISOString(),
+      },
+      { onConflict: "submission_id" }
+    );
+
+    if (feedbackError) {
+      throw feedbackError;
     }
 
     const { error: updateError } = await adminClient
@@ -230,7 +298,7 @@ Deno.serve(async (req) => {
       .update({
         status: "in_review",
         score,
-        reviewer_feedback: JSON.stringify(feedback),
+        reviewer_feedback: summary,
         reviewed_at: new Date().toISOString(),
       })
       .eq("id", submission.id);

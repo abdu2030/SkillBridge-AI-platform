@@ -36,7 +36,33 @@ those values in your local Supabase environment.
 2. Loads the submitted solution, task instructions, visible tests, and rubric.
 3. Builds a structured AI review prompt.
 4. Calls Gemini with JSON-only response instructions.
-5. Stores the score and structured feedback on the submission.
+5. Stores the score and structured feedback in `submission_feedback`.
+6. Updates the submission with the latest overall score and review status.
+
+## Stored Feedback Shape
+
+The Edge Function asks Gemini for JSON with:
+
+- `score`
+- `category_scores.correctness`
+- `category_scores.efficiency`
+- `category_scores.readability`
+- `category_scores.edge_cases`
+- `category_scores.maintainability`
+- `category_scores.security`
+- `summary`
+- `strengths`
+- `weaknesses`
+- `improvement_suggestions`
+- `visible_test_assessment`
+- `rubric_scores`
+- `next_steps`
+
+Run this migration before testing stored feedback:
+
+```powershell
+supabase db push
+```
 
 ## Local Invocation Shape
 
