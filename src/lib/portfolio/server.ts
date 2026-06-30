@@ -144,6 +144,17 @@ async function getPortfolioData(userId: string, options: { requirePublic: boolea
   const supabase = await createSupabaseServerClient();
   if (!supabase) return getFallbackPortfolio(userId);
 
+  const { data: profileData, error: profileError } = await supabase
+    .from("profiles")
+    .select("id, full_name, avatar_url, created_at, portfolio_is_public")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (profileError || !profileData) return null;
+
+  const profile = profileData as ProfileRow;
+  if (options.requirePublic && !profile.portfolio_is_public) return null;
+
   const itemsQuery = supabase
     .from("portfolio_items")
     .select("id, title, summary, category, skills, score, reviewer_comment, approved_at")
@@ -154,12 +165,7 @@ async function getPortfolioData(userId: string, options: { requirePublic: boolea
     itemsQuery.eq("is_public", true);
   }
 
-  const [profileResult, itemsResult, badgesResult] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("id, full_name, avatar_url, created_at, portfolio_is_public")
-      .eq("id", userId)
-      .maybeSingle(),
+  const [itemsResult, badgesResult] = await Promise.all([
     itemsQuery,
     supabase
       .from("user_badges")
@@ -169,10 +175,7 @@ async function getPortfolioData(userId: string, options: { requirePublic: boolea
       .order("earned_at", { ascending: false }),
   ]);
 
-  if (profileResult.error || itemsResult.error || !profileResult.data) return null;
-
-  const profile = profileResult.data as ProfileRow;
-  if (options.requirePublic && !profile.portfolio_is_public) return null;
+  if (itemsResult.error) return null;
 
   const items = ((itemsResult.data as PortfolioItemRow[] | null) ?? []).map((item) => ({
     id: item.id,

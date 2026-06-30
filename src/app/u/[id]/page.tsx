@@ -1,9 +1,11 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { CopyProfileLink } from "@/components/portfolio/copy-profile-link";
 import { PortfolioItemCard } from "@/components/portfolio/portfolio-item-card";
 import { Progress } from "@/components/ui/progress";
 import { getPublicPortfolio } from "@/lib/portfolio/server";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +39,61 @@ function getScoreColor(score: number): "success" | "accent" | "warning" {
   return "warning";
 }
 
+function getSiteUrl() {
+  return (
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    process.env.NEXT_PUBLIC_APP_URL ??
+    "http://localhost:3000"
+  ).replace(/\/$/, "");
+}
+
+export async function generateMetadata({ params }: PublicPortfolioPageProps): Promise<Metadata> {
+  const { id } = await params;
+  const portfolio = await getPublicPortfolio(id);
+
+  if (!portfolio) {
+    return {
+      title: "Private portfolio | SkillBridge AI",
+      description: "This SkillBridge AI portfolio is private.",
+      robots: {
+        index: false,
+        follow: false,
+      },
+    };
+  }
+
+  const url = `${getSiteUrl()}/u/${portfolio.profile.id}`;
+  const title = `${portfolio.profile.fullName} | SkillBridge AI Portfolio`;
+  const description =
+    portfolio.items.length > 0
+      ? `${portfolio.profile.fullName} has ${portfolio.stats.approvedTasks} reviewer-approved SkillBridge tasks with an average score of ${portfolio.stats.averageScore}%.`
+      : `${portfolio.profile.fullName}'s public SkillBridge AI developer portfolio.`;
+
+  return {
+    title,
+    description,
+    alternates: {
+      canonical: url,
+    },
+    openGraph: {
+      title,
+      description,
+      url,
+      type: "profile",
+      siteName: "SkillBridge AI",
+    },
+    twitter: {
+      card: "summary",
+      title,
+      description,
+    },
+    robots: {
+      index: true,
+      follow: true,
+    },
+  };
+}
+
 export default async function PublicPortfolioPage({ params }: PublicPortfolioPageProps) {
   const { id } = await params;
   const portfolio = await getPublicPortfolio(id);
@@ -46,6 +103,7 @@ export default async function PublicPortfolioPage({ params }: PublicPortfolioPag
   }
 
   const { profile, stats, skills, badges, items } = portfolio;
+  const publicUrl = `${getSiteUrl()}/u/${profile.id}`;
 
   return (
     <main className="min-h-screen bg-bg">
@@ -78,6 +136,7 @@ export default async function PublicPortfolioPage({ params }: PublicPortfolioPag
               </p>
             </div>
           </div>
+          <CopyProfileLink url={publicUrl} />
         </section>
 
         <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

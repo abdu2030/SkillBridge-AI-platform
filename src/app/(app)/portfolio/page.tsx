@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { CopyProfileLink } from "@/components/portfolio/copy-profile-link";
 import { PortfolioItemCard } from "@/components/portfolio/portfolio-item-card";
 import { Progress } from "@/components/ui/progress";
 import { updatePortfolioPrivacy } from "@/app/(app)/portfolio/actions";
@@ -12,6 +13,14 @@ function getScoreColor(score: number): "success" | "accent" | "warning" {
   if (score >= 85) return "success";
   if (score >= 70) return "accent";
   return "warning";
+}
+
+function getSiteUrl() {
+  return (
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    process.env.NEXT_PUBLIC_APP_URL ??
+    "http://localhost:3000"
+  ).replace(/\/$/, "");
 }
 
 export default async function PortfolioPage() {
@@ -45,7 +54,8 @@ export default async function PortfolioPage() {
     );
   }
 
-  const publicUrl = `/u/${profile.id}`;
+  const publicPath = `/u/${profile.id}`;
+  const publicUrl = `${getSiteUrl()}${publicPath}`;
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -56,17 +66,20 @@ export default async function PortfolioPage() {
             Share your reviewer-approved work and earned badges.
           </p>
         </div>
-        {portfolio.profile.isPublic ? (
-          <Link href={publicUrl}>
-            <span className="inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover">
-              View public page
+        <div className="flex flex-wrap items-center gap-2">
+          <CopyProfileLink url={publicUrl} disabled={!portfolio.profile.isPublic} />
+          {portfolio.profile.isPublic ? (
+            <Link href={publicPath}>
+              <span className="inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover">
+                View public page
+              </span>
+            </Link>
+          ) : (
+            <span className="inline-flex items-center justify-center gap-2 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary">
+              Public page hidden
             </span>
-          </Link>
-        ) : (
-          <span className="inline-flex items-center justify-center gap-2 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary">
-            Public page hidden
-          </span>
-        )}
+          )}
+        </div>
       </div>
 
       <Card>
@@ -80,7 +93,7 @@ export default async function PortfolioPage() {
             </div>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-text-secondary">
               {portfolio.profile.isPublic
-                ? "Employers and clients can view your approved portfolio evidence."
+                ? `Employers and clients can view your approved portfolio evidence at ${publicUrl}.`
                 : "Only you can view this portfolio until you make it public."}
             </p>
           </div>
