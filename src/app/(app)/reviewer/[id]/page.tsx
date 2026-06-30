@@ -1,11 +1,18 @@
-import { ReviewerClient } from "@/app/(app)/reviewer/reviewer-client";
+import { ReviewSubmissionClient } from "@/app/(app)/reviewer/[id]/review-submission-client";
 import { Card, CardTitle } from "@/components/ui/card";
 import { requireReviewerProfile } from "@/lib/auth/server";
-import { getReviewerDashboardData } from "@/lib/reviewer/server";
+import { getReviewerReviewData } from "@/lib/reviewer/server";
+import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-export default async function ReviewerPage() {
+interface ReviewerSubmissionPageProps {
+  params: Promise<{
+    id: string;
+  }>;
+}
+
+export default async function ReviewerSubmissionPage({ params }: ReviewerSubmissionPageProps) {
   const reviewer = await requireReviewerProfile();
 
   if (!reviewer) {
@@ -22,7 +29,12 @@ export default async function ReviewerPage() {
     );
   }
 
-  const dashboard = await getReviewerDashboardData();
+  const { id } = await params;
+  const review = await getReviewerReviewData(id);
 
-  return <ReviewerClient dashboard={dashboard} />;
+  if (!review) {
+    notFound();
+  }
+
+  return <ReviewSubmissionClient review={review} />;
 }

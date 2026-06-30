@@ -37,3 +37,8 @@ export async function requireAdminProfile() {
   const profile = await getCurrentProfile();
   return profile?.role === "admin" ? profile : null;
 }
+
+export async function requireReviewerProfile() {
+  const profile = await getCurrentProfile();
+  return profile?.role === "reviewer" || profile?.role === "admin" ? profile : null;
+}
