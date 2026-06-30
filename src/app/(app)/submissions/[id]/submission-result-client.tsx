@@ -3,7 +3,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { createSupabaseBrowserClient, getSupabaseBrowserConfig } from "@/lib/supabase/client";
 import type { SubmissionResult } from "@/lib/submissions/data";
 import { cn } from "@/lib/utils";
 import {
@@ -40,6 +40,7 @@ export function SubmissionResultClient({ submission }: { submission: SubmissionR
   const [isGeneratingFeedback, setIsGeneratingFeedback] = useState(false);
   const [feedbackReady, setFeedbackReady] = useState(submission.feedbackReady);
   const [feedbackMessage, setFeedbackMessage] = useState("");
+  const [feedbackMessageTone, setFeedbackMessageTone] = useState<"success" | "error">("success");
   const [score, setScore] = useState(submission.score);
   const activeFile = useMemo(
     () => submission.files.find((file) => file.path === activeFilePath) ?? submission.files[0],
@@ -52,25 +53,53 @@ export function SubmissionResultClient({ submission }: { submission: SubmissionR
   async function generateFeedback() {
     setIsGeneratingFeedback(true);
     setFeedbackMessage("");
+    setFeedbackMessageTone("success");
 
     try {
       const supabase = createSupabaseBrowserClient();
-      const { data, error } = await supabase.functions.invoke("ai-feedback", {
-        body: {
+      const { url, publishableKey } = getSupabaseBrowserConfig();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        setFeedbackMessageTone("error");
+        setFeedbackMessage("Sign in again before generating AI feedback.");
+        return;
+      }
+
+      const response = await fetch(`${url}/functions/v1/ai-feedback`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          apikey: publishableKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
           submissionId: submission.id,
           visibleTestResults: "Manual app request: visible test results pending.",
-        },
+        }),
       });
 
-      if (error) {
-        setFeedbackMessage(error.message || "AI feedback could not be generated.");
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        const message =
+          typeof data?.error === "string"
+            ? data.error
+            : `AI feedback failed with status ${response.status}.`;
+        const details = typeof data?.details === "string" ? ` ${data.details}` : "";
+        setFeedbackMessageTone("error");
+        setFeedbackMessage(`${message}${details}`);
         return;
       }
 
       setScore(typeof data?.score === "number" ? data.score : score);
       setFeedbackReady(true);
+      setFeedbackMessageTone("success");
       setFeedbackMessage("AI feedback generated and saved.");
     } catch (error) {
+      setFeedbackMessageTone("error");
       setFeedbackMessage(
         error instanceof Error ? error.message : "AI feedback could not be generated."
       );
@@ -266,7 +295,7 @@ export function SubmissionResultClient({ submission }: { submission: SubmissionR
               <p
                 className={cn(
                   "mt-3 text-xs leading-relaxed",
-                  feedbackReady ? "text-success" : "text-error"
+                  feedbackMessageTone === "success" ? "text-success" : "text-error"
                 )}
               >
                 {feedbackMessage}

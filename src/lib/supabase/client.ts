@@ -1,6 +1,6 @@
 import { createBrowserClient } from "@supabase/ssr";
 
-function getSupabaseConfig() {
+export function getSupabaseBrowserConfig() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const publishableKey =
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -13,6 +13,6 @@ function getSupabaseConfig() {
 }
 
 export function createSupabaseBrowserClient() {
-  const { url, publishableKey } = getSupabaseConfig();
+  const { url, publishableKey } = getSupabaseBrowserConfig();
   return createBrowserClient(url, publishableKey);
 }
