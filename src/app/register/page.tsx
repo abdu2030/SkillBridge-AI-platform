@@ -7,18 +7,7 @@ import { Input } from "@/components/ui/input";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-
-function getPasswordStrength(pw: string): { score: number; label: string; color: string } {
-  let score = 0;
-  if (pw.length >= 8) score++;
-  if (/[A-Z]/.test(pw)) score++;
-  if (/[0-9]/.test(pw)) score++;
-  if (/[^A-Za-z0-9]/.test(pw)) score++;
-  if (score <= 1) return { score, label: "Weak", color: "bg-error" };
-  if (score === 2) return { score, label: "Fair", color: "bg-warning" };
-  if (score === 3) return { score, label: "Good", color: "bg-accent" };
-  return { score, label: "Strong", color: "bg-success" };
-}
+import { getPasswordStrength, validateRegisterForm } from "@/lib/auth/validators";
 
 export default function RegisterPage() {
   const [form, setForm] = useState({ name: "", email: "", password: "", confirm: "" });
@@ -31,13 +20,7 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newErrors: Record<string, string> = {};
-    if (!form.name) newErrors.name = "Name is required";
-    if (!form.email) newErrors.email = "Email is required";
-    if (!form.password) newErrors.password = "Password is required";
-    else if (form.password.length < 8)
-      newErrors.password = "Password must be at least 8 characters";
-    if (form.password !== form.confirm) newErrors.confirm = "Passwords do not match";
+    const newErrors = validateRegisterForm(form);
     setErrors(newErrors);
     setSuccess("");
     if (Object.keys(newErrors).length > 0) return;

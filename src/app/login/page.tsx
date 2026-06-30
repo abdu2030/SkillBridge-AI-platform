@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useState } from "react";
+import { validateLoginForm } from "@/lib/auth/validators";
 
 function getRedirectPath() {
   if (typeof window === "undefined") return "/dashboard";
@@ -23,9 +24,7 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newErrors: typeof errors = {};
-    if (!email) newErrors.email = "Email is required";
-    if (!password) newErrors.password = "Password is required";
+    const newErrors = validateLoginForm({ email, password });
     setErrors(newErrors);
     if (Object.keys(newErrors).length > 0) return;
 

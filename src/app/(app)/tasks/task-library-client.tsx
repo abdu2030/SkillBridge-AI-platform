@@ -10,6 +10,7 @@ import {
   type TaskDifficulty,
   type TaskStatus,
 } from "@/lib/tasks/data";
+import { filterTasks } from "@/lib/tasks/filters";
 import { cn } from "@/lib/utils";
 import { Clock, Filter, Search, X } from "lucide-react";
 import Link from "next/link";
@@ -46,20 +47,10 @@ export function TaskLibraryClient({ initialTasks }: TaskLibraryClientProps) {
     [initialTasks]
   );
 
-  const filtered = useMemo(() => {
-    const query = search.trim().toLowerCase();
-
-    return initialTasks.filter((task) => {
-      const searchable = [task.title, task.summary, task.category, task.difficulty, ...task.skills]
-        .join(" ")
-        .toLowerCase();
-
-      if (query && !searchable.includes(query)) return false;
-      if (category !== "All" && task.category !== category) return false;
-      if (difficulty !== "All" && task.difficulty !== difficulty) return false;
-      return true;
-    });
-  }, [category, difficulty, initialTasks, search]);
+  const filtered = useMemo(
+    () => filterTasks(initialTasks, { search, category, difficulty }),
+    [category, difficulty, initialTasks, search]
+  );
 
   const activeFilterCount = (category !== "All" ? 1 : 0) + (difficulty !== "All" ? 1 : 0);
 
