@@ -43,7 +43,9 @@ export function PortfolioItemCard({ item, showReviewerComment = true }: Portfoli
 
           {showReviewerComment && item.reviewerComment && (
             <div className="mt-4 rounded-lg border-l-2 border-accent bg-gray-50 px-3 py-2">
-              <p className="text-xs leading-5 text-text-secondary">"{item.reviewerComment}"</p>
+              <p className="text-xs leading-5 text-text-secondary">
+                &quot;{item.reviewerComment}&quot;
+              </p>
               <p className="mt-1 text-xs text-text-tertiary">Reviewer comment</p>
             </div>
           )}

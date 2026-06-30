@@ -1,5 +1,6 @@
 "use client";
 
+import { useToast } from "@/components/ui/toast";
 import { useState } from "react";
 
 interface CopyProfileLinkProps {
@@ -9,12 +10,27 @@ interface CopyProfileLinkProps {
 
 export function CopyProfileLink({ url, disabled }: CopyProfileLinkProps) {
   const [copied, setCopied] = useState(false);
+  const { showToast } = useToast();
 
   async function handleCopy() {
     if (disabled) return;
-    await navigator.clipboard.writeText(url);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 2000);
+
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      showToast({
+        title: "Portfolio link copied",
+        description: "The full public URL is ready to share.",
+        tone: "success",
+      });
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      showToast({
+        title: "Copy failed",
+        description: "Select the browser address bar and copy the URL manually.",
+        tone: "error",
+      });
+    }
   }
 
   return (

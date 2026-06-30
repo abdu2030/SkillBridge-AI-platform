@@ -34,10 +34,31 @@ npm install
 npm run dev
 ```
 
-Before committing feature work, run the relevant checks:
+Copy `.env.example` to `.env.local` and fill in the Supabase values before running auth-backed features.
+
+## Quality Checks
+
+Before committing feature work, run:
 
 ```bash
-npm run lint
-npm run typecheck
+npm run test
+npm run format:check
 npm run build
+npm run typecheck
 ```
+
+## Deployment
+
+Deploy the app on Vercel using the Next.js preset. Production setup needs these pieces:
+
+- Vercel environment variables from `.env.example`
+- Supabase Auth Site URL set to the production domain
+- Supabase Auth Redirect URLs for `/auth/callback`
+- Supabase Edge Function secrets for Gemini feedback
+- Applied database migrations and seed data
+
+Detailed steps are in `docs/deployment.md`.
+
+## Launch QA
+
+The final release checklist is in `docs/launch-checklist.md`. Use it before launch to verify auth, task browsing, workspace submissions, AI feedback, reviewer approval, analytics, portfolio privacy, and responsive layout.

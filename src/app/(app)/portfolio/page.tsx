@@ -3,6 +3,7 @@ import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { CopyProfileLink } from "@/components/portfolio/copy-profile-link";
 import { PortfolioItemCard } from "@/components/portfolio/portfolio-item-card";
+import { PortfolioPrivacyForm } from "@/components/portfolio/portfolio-privacy-form";
 import { Progress } from "@/components/ui/progress";
 import { updatePortfolioPrivacy } from "@/app/(app)/portfolio/actions";
 import { getCurrentProfile } from "@/lib/auth/server";
@@ -97,19 +98,10 @@ export default async function PortfolioPage() {
                 : "Only you can view this portfolio until you make it public."}
             </p>
           </div>
-          <form action={updatePortfolioPrivacy}>
-            <input
-              type="hidden"
-              name="portfolio_is_public"
-              value={portfolio.profile.isPublic ? "false" : "true"}
-            />
-            <button
-              type="submit"
-              className="inline-flex items-center justify-center rounded-lg border border-border bg-bg-card px-3 py-1.5 text-xs font-medium text-text transition-colors hover:bg-surface-hover"
-            >
-              {portfolio.profile.isPublic ? "Make private" : "Make public"}
-            </button>
-          </form>
+          <PortfolioPrivacyForm
+            isPublic={portfolio.profile.isPublic}
+            action={updatePortfolioPrivacy}
+          />
         </div>
       </Card>
 

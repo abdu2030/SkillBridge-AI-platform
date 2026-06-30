@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import {
   saveWorkspaceDraft,
   submitWorkspaceSolution,
@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { useToast } from "@/components/ui/toast";
 import { CodeEditor } from "@/components/workspace/code-editor";
 import {
   Play,
@@ -151,6 +152,7 @@ function formatLastSaved(savedAt: Date | null) {
 }
 
 export default function WorkspacePage() {
+  const { showToast } = useToast();
   const [activeFile, setActiveFile] = useState("parser.py");
   const [fileContents, setFileContents] = useState(() =>
     Object.fromEntries(workspaceFiles.map((file) => [file.name, file.content]))
@@ -192,6 +194,49 @@ export default function WorkspacePage() {
                 variant: "success" as const,
               };
 
+  const saveDraft = useCallback(
+    (successMessage = "Draft saved", notify = false) => {
+      if (dirtyFiles.size === 0 && saveStatus === "saved") return;
+
+      setSaveStatus("saving");
+      setSaveMessage("Saving...");
+
+      startSaveTransition(async () => {
+        const result = await saveWorkspaceDraft({
+          taskSlug: TASK_SLUG,
+          files: fileSnapshot,
+        });
+
+        if (!result.ok) {
+          setSaveStatus("error");
+          setSaveMessage(result.message);
+          if (notify) {
+            showToast({
+              title: "Draft was not saved",
+              description: result.message,
+              tone: "error",
+            });
+          }
+          return;
+        }
+
+        const savedAt = result.savedAt ? new Date(result.savedAt) : new Date();
+        setDirtyFiles(new Set());
+        setLastSavedAt(savedAt);
+        setSaveStatus("saved");
+        setSaveMessage(successMessage);
+        if (notify) {
+          showToast({
+            title: "Draft saved",
+            description: "Your current files are stored for this task.",
+            tone: "success",
+          });
+        }
+      });
+    },
+    [dirtyFiles, fileSnapshot, saveStatus, showToast, startSaveTransition]
+  );
+
   useEffect(() => {
     if (!lastSavedAt || saveStatus !== "saved") return;
 
@@ -210,7 +255,7 @@ export default function WorkspacePage() {
     }, AUTOSAVE_INTERVAL_MS);
 
     return () => window.clearTimeout(timer);
-  }, [dirtyFiles, fileSnapshot, submissionStatus]);
+  }, [dirtyFiles, saveDraft, submissionStatus]);
 
   const handleRunTests = () => {
     setTestsRunning(true);
@@ -218,37 +263,16 @@ export default function WorkspacePage() {
     setTimeout(() => {
       setTestsRunning(false);
       setTestsRan(true);
+      showToast({
+        title: "Visible tests finished",
+        description: "2 passed and 1 failed. Check the tests panel for details.",
+        tone: "info",
+      });
     }, 2000);
   };
 
-  const saveDraft = (successMessage = "Draft saved") => {
-    if (dirtyFiles.size === 0 && saveStatus === "saved") return;
-
-    setSaveStatus("saving");
-    setSaveMessage("Saving...");
-
-    startSaveTransition(async () => {
-      const result = await saveWorkspaceDraft({
-        taskSlug: TASK_SLUG,
-        files: fileSnapshot,
-      });
-
-      if (!result.ok) {
-        setSaveStatus("error");
-        setSaveMessage(result.message);
-        return;
-      }
-
-      const savedAt = result.savedAt ? new Date(result.savedAt) : new Date();
-      setDirtyFiles(new Set());
-      setLastSavedAt(savedAt);
-      setSaveStatus("saved");
-      setSaveMessage(successMessage);
-    });
-  };
-
   const handleSave = () => {
-    saveDraft("Draft saved");
+    saveDraft("Draft saved", true);
   };
 
   const handleReset = () => {
@@ -290,6 +314,11 @@ export default function WorkspacePage() {
       if (!result.ok) {
         setSaveStatus("error");
         setSaveMessage(result.message);
+        showToast({
+          title: "Submission failed",
+          description: result.message,
+          tone: "error",
+        });
         return;
       }
 
@@ -300,6 +329,11 @@ export default function WorkspacePage() {
       setSubmissionStatus("submitted");
       setSaveStatus("saved");
       setSaveMessage("Submitted for review");
+      showToast({
+        title: "Solution submitted",
+        description: "This attempt is now read-only and ready for review.",
+        tone: "success",
+      });
     });
   };
 
@@ -504,7 +538,7 @@ export default function WorkspacePage() {
                   {testsRunning ? (
                     <div className="flex items-center gap-2 py-8 justify-center">
                       <Loader2 className="w-4 h-4 animate-spin text-accent" />
-                      <span className="text-sm text-text-secondary">Running visible tests…</span>
+                      <span className="text-sm text-text-secondary">Running visible tests...</span>
                     </div>
                   ) : testsRan ? (
                     <>

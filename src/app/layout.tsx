@@ -1,9 +1,10 @@
+import { ToastProvider } from "@/components/ui/toast";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "SkillBridge AI — Practice Real Software Engineering",
+  title: "SkillBridge AI - Practice Real Software Engineering",
   description:
     "Debug Python code, fix Dockerfiles, review AI-generated answers, and build a verified developer portfolio.",
 };
@@ -19,7 +20,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           rel="stylesheet"
         />
       </head>
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <ToastProvider>{children}</ToastProvider>
+      </body>
     </html>
   );
 }
