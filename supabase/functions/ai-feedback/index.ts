@@ -109,7 +109,7 @@ Deno.serve(async (req) => {
     const anonKey = requireEnv("SUPABASE_ANON_KEY");
     const serviceRoleKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
     const geminiApiKey = requireEnv("GEMINI_API_KEY");
-    const geminiModel = Deno.env.get("GEMINI_MODEL") || "gemini-1.5-flash";
+    const geminiModel = Deno.env.get("GEMINI_MODEL") || "gemini-3.5-flash";
 
     const userClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },

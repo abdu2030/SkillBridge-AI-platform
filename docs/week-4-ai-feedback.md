@@ -23,7 +23,7 @@ Set these in Supabase before deploying or serving the function:
 
 ```powershell
 supabase secrets set GEMINI_API_KEY="your-gemini-api-key"
-supabase secrets set GEMINI_MODEL="gemini-1.5-flash"
+supabase secrets set GEMINI_MODEL="gemini-3.5-flash"
 ```
 
 Supabase normally provides `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and
