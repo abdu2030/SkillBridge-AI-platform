@@ -15,6 +15,14 @@ export interface DashboardProgressData {
   weakestSkill: string;
   currentStreak: number;
   pendingFeedback: number;
+  recommendedNextTask: {
+    id: string;
+    title: string;
+    category: string;
+    difficulty: string;
+    estimatedMinutes: number;
+    reason: string;
+  } | null;
   weeklyActivity: WeeklyActivityPoint[];
   categoryPerformance: Array<{
     skill: string;

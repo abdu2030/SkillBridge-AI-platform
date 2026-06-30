@@ -1,10 +1,13 @@
 import {
   calculateSkillProgress,
+  getSkillForTask,
   getSkillLabel,
   getSkillNeedingWork,
   getStrongestSkill,
+  skillDefinitions,
   type CalculatedSkillProgress,
   type ReviewedTaskScore,
+  type SkillArea,
 } from "@/lib/progress/skills";
 import type { DashboardProgressData, WeeklyActivityPoint } from "@/lib/progress/types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -55,6 +58,21 @@ interface RecentSubmissionRow {
   tasks?: {
     title: string;
   } | null;
+}
+
+interface RecommendationTaskRow {
+  id: string;
+  slug: string;
+  title: string;
+  category: string;
+  difficulty: string;
+  estimated_minutes: number;
+  tags: string[] | null;
+}
+
+interface UserTaskSubmissionRow {
+  task_id: string;
+  status: string;
 }
 
 function firstRelation<T>(value: T | T[] | null | undefined) {
@@ -119,6 +137,14 @@ function getFallbackDashboardData(): DashboardProgressData {
     weakestSkill: "Docker",
     currentStreak: 5,
     pendingFeedback: 2,
+    recommendedNextTask: {
+      id: "docker-multistage",
+      title: "Fix Docker multi-stage build",
+      category: "Docker",
+      difficulty: "Intermediate",
+      estimatedMinutes: 30,
+      reason: "Docker is your lowest scoring reviewed skill right now.",
+    },
     weeklyActivity: [
       { day: "Mon", tasks: 2 },
       { day: "Tue", tasks: 3 },
@@ -178,10 +204,91 @@ function getEmptyDashboardData(): DashboardProgressData {
     weakestSkill: "No skill yet",
     currentStreak: 0,
     pendingFeedback: 0,
+    recommendedNextTask: null,
     weeklyActivity: buildEmptyWeeklyActivity(),
     categoryPerformance: [],
     scoreHistory: [],
     recentSubmissions: [],
+  };
+}
+
+function formatDifficulty(value: string) {
+  return value
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function getRecommendationPriority(progress: CalculatedSkillProgress[]) {
+  const weakest = getSkillNeedingWork(progress);
+  const untouched = skillDefinitions.find(
+    (definition) =>
+      !progress.some((item) => item.skill === definition.key && item.completedCount > 0)
+  );
+
+  return [
+    ...(weakest
+      ? [
+          {
+            skill: weakest.skill,
+            reason: `${weakest.label} is your lowest scoring reviewed skill right now.`,
+          },
+        ]
+      : []),
+    ...(untouched
+      ? [{ skill: untouched.key, reason: `${untouched.label} is still an unfinished skill area.` }]
+      : []),
+    ...skillDefinitions.map((definition) => ({
+      skill: definition.key,
+      reason: `${definition.label} will help round out your SkillBridge profile.`,
+    })),
+  ] satisfies Array<{ skill: SkillArea; reason: string }>;
+}
+
+function pickRecommendedTask(
+  tasks: RecommendationTaskRow[],
+  userSubmissions: UserTaskSubmissionRow[],
+  progress: CalculatedSkillProgress[]
+): DashboardProgressData["recommendedNextTask"] {
+  const submittedTaskIds = new Set(
+    userSubmissions
+      .filter((submission) => submission.status !== "draft")
+      .map((submission) => submission.task_id)
+  );
+  const availableTasks = tasks.filter((task) => !submittedTaskIds.has(task.id));
+
+  for (const priority of getRecommendationPriority(progress)) {
+    const task = availableTasks.find(
+      (candidate) =>
+        getSkillForTask({
+          title: candidate.title,
+          category: candidate.category,
+          tags: candidate.tags ?? [],
+        }) === priority.skill
+    );
+
+    if (task) {
+      return {
+        id: task.slug,
+        title: task.title,
+        category: task.category,
+        difficulty: formatDifficulty(task.difficulty),
+        estimatedMinutes: task.estimated_minutes,
+        reason: priority.reason,
+      };
+    }
+  }
+
+  const fallbackTask = availableTasks[0] ?? tasks[0];
+  if (!fallbackTask) return null;
+
+  return {
+    id: fallbackTask.slug,
+    title: fallbackTask.title,
+    category: fallbackTask.category,
+    difficulty: formatDifficulty(fallbackTask.difficulty),
+    estimatedMinutes: fallbackTask.estimated_minutes,
+    reason: "This task is available and will keep your progress moving.",
   };
 }
 
@@ -332,8 +439,16 @@ export async function awardUserBadges(userId: string, progress?: CalculatedSkill
 export async function getProgressDashboardData(userId: string): Promise<DashboardProgressData> {
   const supabase = await createSupabaseServerClient();
   if (!supabase) return getFallbackDashboardData();
+  if (!userId) return getEmptyDashboardData();
 
-  const [progressResult, reviewsResult, pendingResult, recentResult] = await Promise.all([
+  const [
+    progressResult,
+    reviewsResult,
+    pendingResult,
+    recentResult,
+    tasksResult,
+    userSubmissionsResult,
+  ] = await Promise.all([
     supabase
       .from("user_progress")
       .select(
@@ -381,6 +496,12 @@ export async function getProgressDashboardData(userId: string): Promise<Dashboar
       .neq("status", "draft")
       .order("submitted_at", { ascending: false })
       .limit(5),
+    supabase
+      .from("tasks")
+      .select("id, slug, title, category, difficulty, estimated_minutes, tags")
+      .eq("status", "published")
+      .order("published_at", { ascending: false }),
+    supabase.from("submissions").select("task_id, status").eq("user_id", userId),
   ]);
 
   if (progressResult.error) return getEmptyDashboardData();
@@ -405,9 +526,16 @@ export async function getProgressDashboardData(userId: string): Promise<Dashboar
 
   if (progress.length === 0) {
     const emptyData = getEmptyDashboardData();
+    const recommendedNextTask = pickRecommendedTask(
+      (tasksResult.data as RecommendationTaskRow[] | null) ?? [],
+      (userSubmissionsResult.data as UserTaskSubmissionRow[] | null) ?? [],
+      []
+    );
+
     return {
       ...emptyData,
       pendingFeedback: pendingResult.count ?? 0,
+      recommendedNextTask,
       recentSubmissions: ((recentResult.data as unknown as RecentSubmissionRow[] | null) ?? []).map(
         (submission) => {
           const task = firstRelation(submission.tasks);
@@ -466,6 +594,11 @@ export async function getProgressDashboardData(userId: string): Promise<Dashboar
       time: formatRelativeTime(submission.reviewed_at ?? submission.submitted_at),
     };
   });
+  const recommendedNextTask = pickRecommendedTask(
+    (tasksResult.data as RecommendationTaskRow[] | null) ?? [],
+    (userSubmissionsResult.data as UserTaskSubmissionRow[] | null) ?? [],
+    progress
+  );
 
   return {
     completedTasks,
@@ -474,6 +607,7 @@ export async function getProgressDashboardData(userId: string): Promise<Dashboar
     weakestSkill: weakest?.label ?? "No skill yet",
     currentStreak: calculateCurrentStreak(reviewDates),
     pendingFeedback: pendingResult.count ?? 0,
+    recommendedNextTask,
     weeklyActivity,
     categoryPerformance: progress.map((item) => ({
       skill: item.label,

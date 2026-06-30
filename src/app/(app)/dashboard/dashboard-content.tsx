@@ -65,6 +65,8 @@ export function DashboardContent({ dashboard, firstName }: DashboardContentProps
   const lastSubmission = recentSubmissions[0]?.time;
   const hasCategoryData = skillRows.some((item) => item.completedCount > 0);
   const hasScoreHistory = dashboard.scoreHistory.length > 0;
+  const hasWeeklyActivity = dashboard.weeklyActivity.some((item) => item.tasks > 0);
+  const recommendedTask = dashboard.recommendedNextTask;
 
   const stats = [
     {
@@ -133,9 +135,17 @@ export function DashboardContent({ dashboard, firstName }: DashboardContentProps
         <Card>
           <CardTitle>Weekly activity</CardTitle>
           <CardDescription>Reviewed tasks completed per day this week</CardDescription>
-          <div className="mt-4">
-            <WeeklyChart data={dashboard.weeklyActivity} />
-          </div>
+          {hasWeeklyActivity ? (
+            <div className="mt-4">
+              <WeeklyChart data={dashboard.weeklyActivity} />
+            </div>
+          ) : (
+            <EmptyState
+              icon={<Flame className="h-6 w-6" />}
+              title="No reviewed activity this week"
+              description="Reviewed submissions will fill this chart as your week builds."
+            />
+          )}
         </Card>
 
         <Card>
@@ -192,25 +202,37 @@ export function DashboardContent({ dashboard, firstName }: DashboardContentProps
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-1">
           <CardTitle>Recommended next task</CardTitle>
-          <div className="mt-4 space-y-3">
-            <p className="text-sm font-medium text-text">Build your weakest skill</p>
-            <p className="text-xs text-text-secondary">
-              Pick a task in {dashboard.weakestSkill} to improve your profile and unlock more
-              badges.
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="outline">{dashboard.weakestSkill}</Badge>
-              <Badge variant="outline">Recommended</Badge>
-              <span className="flex items-center gap-1 text-xs text-text-tertiary">
-                <Clock className="h-3 w-3" /> 30 min
-              </span>
+          {recommendedTask ? (
+            <div className="mt-4 space-y-3">
+              <p className="text-sm font-medium text-text">{recommendedTask.title}</p>
+              <p className="text-xs text-text-secondary">{recommendedTask.reason}</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="outline">{recommendedTask.category}</Badge>
+                <Badge variant="outline">{recommendedTask.difficulty}</Badge>
+                <span className="flex items-center gap-1 text-xs text-text-tertiary">
+                  <Clock className="h-3 w-3" /> {recommendedTask.estimatedMinutes} min
+                </span>
+              </div>
+              <Link href={`/tasks/${recommendedTask.id}`}>
+                <Button size="sm" className="mt-1">
+                  Start task <ArrowRight className="h-3.5 w-3.5" />
+                </Button>
+              </Link>
             </div>
-            <Link href="/tasks">
-              <Button size="sm" className="mt-1">
-                Browse tasks <ArrowRight className="h-3.5 w-3.5" />
-              </Button>
-            </Link>
-          </div>
+          ) : (
+            <EmptyState
+              icon={<Clock className="h-6 w-6" />}
+              title="No task recommendation yet"
+              description="Publish a task or browse the library to choose your next practice item."
+              action={
+                <Link href="/tasks">
+                  <Button size="sm" variant="secondary">
+                    Browse tasks
+                  </Button>
+                </Link>
+              }
+            />
+          )}
         </Card>
 
         <Card className="lg:col-span-2">
@@ -267,7 +289,7 @@ export function DashboardContent({ dashboard, firstName }: DashboardContentProps
                 <div className="mb-1.5 flex items-center justify-between gap-3">
                   <span className="text-sm text-text">{skill.skill}</span>
                   <span className="text-xs font-medium tabular-nums text-text-secondary">
-                    {skill.score}% · {skill.completedCount} completed
+                    {skill.score}% - {skill.completedCount} completed
                   </span>
                 </div>
                 <Progress value={skill.score} color={getScoreColor(skill.score)} />
