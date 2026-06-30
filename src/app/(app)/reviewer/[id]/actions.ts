@@ -127,6 +127,7 @@ export async function saveManualReview(input: SaveReviewInput) {
   revalidatePath("/submissions");
   revalidatePath(`/submissions/${submission.id}`);
   revalidatePath("/portfolio");
+  revalidatePath(`/u/${submission.user_id}`);
 
   return {
     ok: true,
