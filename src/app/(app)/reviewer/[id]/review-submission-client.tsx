@@ -1,5 +1,6 @@
 "use client";
 
+import { saveManualReview, type ReviewDecision } from "@/app/(app)/reviewer/[id]/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
@@ -19,6 +20,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { useTransition } from "react";
 
 type ScoreState = Record<string, number>;
 type ChecklistState = Record<string, boolean>;
@@ -45,6 +47,11 @@ export function ReviewSubmissionClient({ review }: { review: ReviewerReviewData 
     getInitialChecklist(review)
   );
   const [comment, setComment] = useState("");
+  const [portfolioApproved, setPortfolioApproved] = useState(false);
+  const [reviewStatus, setReviewStatus] = useState<ReviewDecision | null>(null);
+  const [saveMessage, setSaveMessage] = useState("");
+  const [saveTone, setSaveTone] = useState<"success" | "error">("success");
+  const [isSaving, startSaving] = useTransition();
 
   const activeFile = useMemo(
     () => review.files.find((file) => file.path === activeFilePath) ?? review.files[0],
@@ -64,6 +71,34 @@ export function ReviewSubmissionClient({ review }: { review: ReviewerReviewData 
       ...current,
       [itemId]: clampScore(Number(value), max),
     }));
+  }
+
+  function submitReview(decision: ReviewDecision) {
+    setSaveMessage("");
+    setSaveTone("success");
+
+    startSaving(async () => {
+      const result = await saveManualReview({
+        submissionId: review.id,
+        decision,
+        reviewerScore,
+        maxScore,
+        reviewerPercent,
+        comment,
+        portfolioApproved,
+        rubricScores: review.rubricItems.map((item) => ({
+          rubricItemId: item.id,
+          label: item.label,
+          score: clampScore(scores[item.id] ?? 0, item.maxPoints),
+          maxScore: item.maxPoints,
+          checked: Boolean(checkedItems[item.id]),
+        })),
+      });
+
+      setSaveTone(result.ok ? "success" : "error");
+      setSaveMessage(result.message);
+      if (result.ok) setReviewStatus(decision);
+    });
   }
 
   return (
@@ -94,7 +129,7 @@ export function ReviewSubmissionClient({ review }: { review: ReviewerReviewData 
             <Link href="/reviewer">
               <Button variant="secondary">Back to dashboard</Button>
             </Link>
-            <Button>
+            <Button onClick={() => submitReview("approved")} loading={isSaving}>
               Submit review
               <Send className="h-4 w-4" />
             </Button>
@@ -102,7 +137,7 @@ export function ReviewSubmissionClient({ review }: { review: ReviewerReviewData 
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card className="flex items-center gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-light text-accent">
             <Target className="h-4 w-4" />
@@ -133,6 +168,17 @@ export function ReviewSubmissionClient({ review }: { review: ReviewerReviewData 
             <p className="text-xs text-text-tertiary">AI score</p>
             <p className="text-sm font-semibold text-text">
               {review.aiScore === null ? "Pending" : `${review.aiScore}%`}
+            </p>
+          </div>
+        </Card>
+        <Card className="flex items-center gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-700">
+            <Save className="h-4 w-4" />
+          </div>
+          <div>
+            <p className="text-xs text-text-tertiary">Review status</p>
+            <p className="text-sm font-semibold text-text">
+              {reviewStatus ? reviewStatus.replace("_", " ") : "Not saved"}
             </p>
           </div>
         </Card>
@@ -318,13 +364,51 @@ export function ReviewSubmissionClient({ review }: { review: ReviewerReviewData 
           </Card>
 
           <Card>
+            <div className="mb-4 rounded-lg border border-border bg-surface p-3">
+              <label className="flex cursor-pointer items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={portfolioApproved}
+                  onChange={(event) => setPortfolioApproved(event.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-border accent-accent"
+                />
+                <span>
+                  <span className="block text-sm font-medium text-text">Approve for portfolio</span>
+                  <span className="mt-1 block text-xs leading-relaxed text-text-secondary">
+                    When approved, this review can be used as verified portfolio evidence.
+                  </span>
+                </span>
+              </label>
+            </div>
+
+            {saveMessage && (
+              <p
+                className={cn(
+                  "mb-3 rounded-lg px-3 py-2 text-xs leading-relaxed",
+                  saveTone === "success"
+                    ? "bg-success-light text-success"
+                    : "bg-error-light text-error"
+                )}
+              >
+                {saveMessage}
+              </p>
+            )}
+
             <div className="flex flex-col gap-2">
-              <Button>
+              <Button onClick={() => submitReview("draft")} loading={isSaving}>
                 Save review draft
                 <Save className="h-4 w-4" />
               </Button>
-              <Button variant="secondary">
-                Submit manual review
+              <Button
+                variant="secondary"
+                onClick={() => submitReview("approved")}
+                loading={isSaving}
+              >
+                Approve submission
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" onClick={() => submitReview("rejected")} loading={isSaving}>
+                Needs improvement
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </div>
