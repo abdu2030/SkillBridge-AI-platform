@@ -153,3 +153,7 @@ export function getSkillNeedingWork(progress: CalculatedSkillProgress[]) {
     .filter((item) => item.completedCount > 0)
     .sort((a, b) => a.averageScore - b.averageScore || b.completedCount - a.completedCount)[0];
 }
+
+export function getSkillLabel(skill: SkillArea) {
+  return skillDefinitions.find((definition) => definition.key === skill)?.label ?? skill;
+}

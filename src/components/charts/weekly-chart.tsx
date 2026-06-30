@@ -1,7 +1,8 @@
 "use client";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import type { WeeklyActivityPoint } from "@/lib/progress/types";
 
-const data = [
+const fallbackData: WeeklyActivityPoint[] = [
   { day: "Mon", tasks: 2 },
   { day: "Tue", tasks: 3 },
   { day: "Wed", tasks: 1 },
@@ -11,7 +12,11 @@ const data = [
   { day: "Sun", tasks: 1 },
 ];
 
-export function WeeklyChart() {
+interface WeeklyChartProps {
+  data?: WeeklyActivityPoint[];
+}
+
+export function WeeklyChart({ data = fallbackData }: WeeklyChartProps) {
   return (
     <ResponsiveContainer width="100%" height={200}>
       <BarChart data={data} barSize={24}>

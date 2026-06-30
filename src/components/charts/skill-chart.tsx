@@ -1,7 +1,12 @@
 "use client";
 import { RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer } from "recharts";
 
-const data = [
+interface SkillChartPoint {
+  skill: string;
+  score: number;
+}
+
+const fallbackData: SkillChartPoint[] = [
   { skill: "Python", score: 88 },
   { skill: "Docker", score: 64 },
   { skill: "Git", score: 75 },
@@ -10,7 +15,11 @@ const data = [
   { skill: "DB", score: 72 },
 ];
 
-export function SkillChart() {
+interface SkillChartProps {
+  data?: SkillChartPoint[];
+}
+
+export function SkillChart({ data = fallbackData }: SkillChartProps) {
   return (
     <ResponsiveContainer width="100%" height={240}>
       <RadarChart cx="50%" cy="50%" outerRadius="70%" data={data}>
