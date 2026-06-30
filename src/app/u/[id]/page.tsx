@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PortfolioItemCard } from "@/components/portfolio/portfolio-item-card";
 import { Progress } from "@/components/ui/progress";
 import { getPublicPortfolio } from "@/lib/portfolio/server";
 import { notFound } from "next/navigation";
@@ -168,45 +169,7 @@ export default async function PublicPortfolioPage({ params }: PublicPortfolioPag
           {items.length > 0 ? (
             <div className="space-y-3">
               {items.map((item) => (
-                <Card key={item.id}>
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <h3 className="text-sm font-semibold text-text">{item.title}</h3>
-                          <p className="mt-1 text-sm leading-6 text-text-secondary">
-                            {item.summary}
-                          </p>
-                        </div>
-                        <div className="shrink-0 text-right">
-                          <p className="text-lg font-semibold tabular-nums text-text">
-                            {item.score}%
-                          </p>
-                          <Badge variant="success">Approved</Badge>
-                        </div>
-                      </div>
-                      <div className="mt-3 flex flex-wrap items-center gap-2">
-                        <Badge variant="outline">{item.category}</Badge>
-                        {item.skills.slice(0, 4).map((skill) => (
-                          <Badge key={skill} variant="outline">
-                            {skill}
-                          </Badge>
-                        ))}
-                        <span className="text-xs text-text-tertiary">
-                          {formatDate(item.approvedAt)}
-                        </span>
-                      </div>
-                      {item.reviewerComment && (
-                        <div className="mt-4 rounded-lg border-l-2 border-accent bg-gray-50 px-3 py-2">
-                          <p className="text-xs leading-5 text-text-secondary">
-                            "{item.reviewerComment}"
-                          </p>
-                          <p className="mt-1 text-xs text-text-tertiary">Reviewer comment</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </Card>
+                <PortfolioItemCard key={item.id} item={item} />
               ))}
             </div>
           ) : (

@@ -31,6 +31,7 @@ export interface PublicPortfolioData {
     fullName: string;
     avatarUrl: string | null;
     joinedAt: string;
+    isPublic: boolean;
   };
   stats: {
     approvedTasks: number;
@@ -48,6 +49,7 @@ interface ProfileRow {
   full_name: string;
   avatar_url: string | null;
   created_at: string;
+  portfolio_is_public: boolean;
 }
 
 interface PortfolioItemRow {
@@ -116,6 +118,7 @@ function getFallbackPortfolio(userId: string): PublicPortfolioData {
       fullName: "SkillBridge Developer",
       avatarUrl: null,
       joinedAt: new Date().toISOString(),
+      isPublic: true,
     },
     stats: {
       approvedTasks: items.length,
@@ -137,22 +140,27 @@ function getFallbackPortfolio(userId: string): PublicPortfolioData {
   };
 }
 
-export async function getPublicPortfolio(userId: string) {
+async function getPortfolioData(userId: string, options: { requirePublic: boolean }) {
   const supabase = await createSupabaseServerClient();
   if (!supabase) return getFallbackPortfolio(userId);
+
+  const itemsQuery = supabase
+    .from("portfolio_items")
+    .select("id, title, summary, category, skills, score, reviewer_comment, approved_at")
+    .eq("user_id", userId)
+    .order("approved_at", { ascending: false });
+
+  if (options.requirePublic) {
+    itemsQuery.eq("is_public", true);
+  }
 
   const [profileResult, itemsResult, badgesResult] = await Promise.all([
     supabase
       .from("profiles")
-      .select("id, full_name, avatar_url, created_at")
+      .select("id, full_name, avatar_url, created_at, portfolio_is_public")
       .eq("id", userId)
       .maybeSingle(),
-    supabase
-      .from("portfolio_items")
-      .select("id, title, summary, category, skills, score, reviewer_comment, approved_at")
-      .eq("user_id", userId)
-      .eq("is_public", true)
-      .order("approved_at", { ascending: false }),
+    itemsQuery,
     supabase
       .from("user_badges")
       .select("earned_at, badges(name, description, category, points)")
@@ -164,6 +172,8 @@ export async function getPublicPortfolio(userId: string) {
   if (profileResult.error || itemsResult.error || !profileResult.data) return null;
 
   const profile = profileResult.data as ProfileRow;
+  if (options.requirePublic && !profile.portfolio_is_public) return null;
+
   const items = ((itemsResult.data as PortfolioItemRow[] | null) ?? []).map((item) => ({
     id: item.id,
     title: item.title,
@@ -200,6 +210,7 @@ export async function getPublicPortfolio(userId: string) {
       fullName: profile.full_name,
       avatarUrl: profile.avatar_url,
       joinedAt: profile.created_at,
+      isPublic: profile.portfolio_is_public,
     },
     stats: {
       approvedTasks: items.length,
@@ -211,4 +222,12 @@ export async function getPublicPortfolio(userId: string) {
     badges,
     items,
   } satisfies PublicPortfolioData;
+}
+
+export async function getPublicPortfolio(userId: string) {
+  return getPortfolioData(userId, { requirePublic: true });
+}
+
+export async function getOwnerPortfolio(userId: string) {
+  return getPortfolioData(userId, { requirePublic: false });
 }

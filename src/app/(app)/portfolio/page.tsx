@@ -1,18 +1,12 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PortfolioItemCard } from "@/components/portfolio/portfolio-item-card";
 import { Progress } from "@/components/ui/progress";
+import { updatePortfolioPrivacy } from "@/app/(app)/portfolio/actions";
 import { getCurrentProfile } from "@/lib/auth/server";
-import { getPublicPortfolio } from "@/lib/portfolio/server";
+import { getOwnerPortfolio } from "@/lib/portfolio/server";
 import Link from "next/link";
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(new Date(value));
-}
 
 function getScoreColor(score: number): "success" | "accent" | "warning" {
   if (score >= 85) return "success";
@@ -36,7 +30,7 @@ export default async function PortfolioPage() {
     );
   }
 
-  const portfolio = await getPublicPortfolio(profile.id);
+  const portfolio = await getOwnerPortfolio(profile.id);
 
   if (!portfolio) {
     return (
@@ -62,12 +56,49 @@ export default async function PortfolioPage() {
             Share your reviewer-approved work and earned badges.
           </p>
         </div>
-        <Link href={publicUrl}>
-          <span className="inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover">
-            View public page
+        {portfolio.profile.isPublic ? (
+          <Link href={publicUrl}>
+            <span className="inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover">
+              View public page
+            </span>
+          </Link>
+        ) : (
+          <span className="inline-flex items-center justify-center gap-2 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary">
+            Public page hidden
           </span>
-        </Link>
+        )}
       </div>
+
+      <Card>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <CardTitle>Privacy settings</CardTitle>
+              <Badge variant={portfolio.profile.isPublic ? "success" : "warning"}>
+                {portfolio.profile.isPublic ? "Public" : "Private"}
+              </Badge>
+            </div>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-text-secondary">
+              {portfolio.profile.isPublic
+                ? "Employers and clients can view your approved portfolio evidence."
+                : "Only you can view this portfolio until you make it public."}
+            </p>
+          </div>
+          <form action={updatePortfolioPrivacy}>
+            <input
+              type="hidden"
+              name="portfolio_is_public"
+              value={portfolio.profile.isPublic ? "false" : "true"}
+            />
+            <button
+              type="submit"
+              className="inline-flex items-center justify-center rounded-lg border border-border bg-bg-card px-3 py-1.5 text-xs font-medium text-text transition-colors hover:bg-surface-hover"
+            >
+              {portfolio.profile.isPublic ? "Make private" : "Make public"}
+            </button>
+          </form>
+        </div>
+      </Card>
 
       <section className="grid gap-4 sm:grid-cols-3">
         <Card>
@@ -141,29 +172,7 @@ export default async function PortfolioPage() {
         {portfolio.items.length > 0 ? (
           <div className="space-y-3">
             {portfolio.items.map((item) => (
-              <Card key={item.id}>
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <h3 className="text-sm font-semibold text-text">{item.title}</h3>
-                    <p className="mt-1 text-sm leading-6 text-text-secondary">{item.summary}</p>
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                      <Badge variant="outline">{item.category}</Badge>
-                      <span className="text-xs text-text-tertiary">
-                        {formatDate(item.approvedAt)}
-                      </span>
-                    </div>
-                    {item.reviewerComment && (
-                      <p className="mt-3 rounded-lg border-l-2 border-accent bg-gray-50 px-3 py-2 text-xs leading-5 text-text-secondary">
-                        "{item.reviewerComment}"
-                      </p>
-                    )}
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <p className="text-lg font-semibold tabular-nums text-text">{item.score}%</p>
-                    <Badge variant="success">Approved</Badge>
-                  </div>
-                </div>
-              </Card>
+              <PortfolioItemCard key={item.id} item={item} />
             ))}
           </div>
         ) : (
