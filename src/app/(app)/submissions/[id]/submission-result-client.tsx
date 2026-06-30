@@ -35,12 +35,45 @@ const statusCopy: Record<SubmissionResult["status"], string> = {
   Pending: "Waiting for review",
 };
 
+const maxFeedbackAttempts = 3;
+
+function wait(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function getFeedbackErrorMessage(data: unknown, status: number) {
+  if (data && typeof data === "object" && "error" in data && typeof data.error === "string") {
+    const details = "details" in data && typeof data.details === "string" ? ` ${data.details}` : "";
+    return `${data.error}${details}`;
+  }
+
+  return `AI feedback failed with status ${status}.`;
+}
+
+function shouldRetryFeedbackRequest(data: unknown, status: number) {
+  if (status === 429 || status === 500 || status === 503 || status === 504) return true;
+
+  if (status !== 502) return false;
+
+  const details =
+    data && typeof data === "object" && "details" in data && typeof data.details === "string"
+      ? data.details.toLowerCase()
+      : "";
+
+  return (
+    !details.includes("not_found") &&
+    !details.includes("not found") &&
+    !details.includes('"code": 404')
+  );
+}
+
 export function SubmissionResultClient({ submission }: { submission: SubmissionResult }) {
   const [activeFilePath, setActiveFilePath] = useState(submission.files[0]?.path ?? "");
   const [isGeneratingFeedback, setIsGeneratingFeedback] = useState(false);
   const [feedbackReady, setFeedbackReady] = useState(submission.feedbackReady);
   const [feedbackMessage, setFeedbackMessage] = useState("");
   const [feedbackMessageTone, setFeedbackMessageTone] = useState<"success" | "error">("success");
+  const [feedbackAttempt, setFeedbackAttempt] = useState(0);
   const [score, setScore] = useState(submission.score);
   const activeFile = useMemo(
     () => submission.files.find((file) => file.path === activeFilePath) ?? submission.files[0],
@@ -68,36 +101,68 @@ export function SubmissionResultClient({ submission }: { submission: SubmissionR
         return;
       }
 
-      const response = await fetch(`${url}/functions/v1/ai-feedback`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          apikey: publishableKey,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          submissionId: submission.id,
-          visibleTestResults: "Manual app request: visible test results pending.",
-        }),
-      });
+      for (let attempt = 1; attempt <= maxFeedbackAttempts; attempt += 1) {
+        setFeedbackAttempt(attempt);
+        setFeedbackMessageTone("success");
+        setFeedbackMessage(
+          `Generating AI feedback... attempt ${attempt} of ${maxFeedbackAttempts}.`
+        );
 
-      const data = await response.json().catch(() => null);
+        try {
+          const response = await fetch(`${url}/functions/v1/ai-feedback`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+              apikey: publishableKey,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              submissionId: submission.id,
+              visibleTestResults: "Manual app request: visible test results pending.",
+            }),
+          });
 
-      if (!response.ok) {
-        const message =
-          typeof data?.error === "string"
-            ? data.error
-            : `AI feedback failed with status ${response.status}.`;
-        const details = typeof data?.details === "string" ? ` ${data.details}` : "";
-        setFeedbackMessageTone("error");
-        setFeedbackMessage(`${message}${details}`);
-        return;
+          const data = await response.json().catch(() => null);
+
+          if (response.ok) {
+            setScore(typeof data?.score === "number" ? data.score : score);
+            setFeedbackReady(true);
+            setFeedbackMessageTone("success");
+            setFeedbackMessage("AI feedback generated and saved.");
+            return;
+          }
+
+          const message = getFeedbackErrorMessage(data, response.status);
+          const canRetry =
+            attempt < maxFeedbackAttempts && shouldRetryFeedbackRequest(data, response.status);
+
+          if (!canRetry) {
+            setFeedbackMessageTone("error");
+            setFeedbackMessage(message);
+            return;
+          }
+
+          const retryDelaySeconds = attempt * 2;
+          setFeedbackMessageTone("error");
+          setFeedbackMessage(`${message} Retrying in ${retryDelaySeconds} seconds...`);
+          await wait(retryDelaySeconds * 1000);
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : "AI feedback could not be generated.";
+          const canRetry = attempt < maxFeedbackAttempts;
+
+          if (!canRetry) {
+            setFeedbackMessageTone("error");
+            setFeedbackMessage(`${message} No more retry attempts left.`);
+            return;
+          }
+
+          const retryDelaySeconds = attempt * 2;
+          setFeedbackMessageTone("error");
+          setFeedbackMessage(`${message} Retrying in ${retryDelaySeconds} seconds...`);
+          await wait(retryDelaySeconds * 1000);
+        }
       }
-
-      setScore(typeof data?.score === "number" ? data.score : score);
-      setFeedbackReady(true);
-      setFeedbackMessageTone("success");
-      setFeedbackMessage("AI feedback generated and saved.");
     } catch (error) {
       setFeedbackMessageTone("error");
       setFeedbackMessage(
@@ -105,6 +170,7 @@ export function SubmissionResultClient({ submission }: { submission: SubmissionR
       );
     } finally {
       setIsGeneratingFeedback(false);
+      setFeedbackAttempt(0);
     }
   }
 
@@ -268,7 +334,9 @@ export function SubmissionResultClient({ submission }: { submission: SubmissionR
                   loading={isGeneratingFeedback}
                   onClick={generateFeedback}
                 >
-                  Regenerate AI feedback
+                  {isGeneratingFeedback
+                    ? `Retrying AI feedback ${feedbackAttempt}/${maxFeedbackAttempts}`
+                    : "Regenerate AI feedback"}
                 </Button>
               </div>
             ) : (
@@ -287,7 +355,9 @@ export function SubmissionResultClient({ submission }: { submission: SubmissionR
                   loading={isGeneratingFeedback}
                   onClick={generateFeedback}
                 >
-                  Generate AI feedback
+                  {isGeneratingFeedback
+                    ? `Generating AI feedback ${feedbackAttempt}/${maxFeedbackAttempts}`
+                    : "Generate AI feedback"}
                 </Button>
               </div>
             )}

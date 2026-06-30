@@ -39,6 +39,21 @@ those values in your local Supabase environment.
 5. Stores the score and structured feedback in `submission_feedback`.
 6. Updates the submission with the latest overall score and review status.
 
+## App Retry Behavior
+
+The submission result page calls the deployed `ai-feedback` function from the logged-in browser
+session. Failed requests show the real Edge Function error response instead of a generic failure.
+
+The app retries transient failures up to three times:
+
+- rate limit responses
+- temporary server errors
+- temporary Gemini gateway failures
+- network failures
+
+The app does not retry permanent errors such as missing sessions, draft submissions, missing
+submissions, missing database tables, missing secrets, or unsupported Gemini model names.
+
 ## Stored Feedback Shape
 
 The Edge Function asks Gemini for JSON with:
@@ -64,10 +79,24 @@ Run this migration before testing stored feedback:
 supabase db push
 ```
 
-## Local Invocation Shape
+## Testing From The App
 
-```powershell
-supabase functions invoke ai-feedback --body '{ "submissionId": "submission-uuid", "visibleTestResults": "2 passed, 1 failed" }'
-```
+Some Supabase CLI versions do not support `supabase functions invoke`. Test feedback generation
+from the app instead:
 
-The request must include a valid user session token when called from the app or API client.
+1. Run `npm run dev`.
+2. Sign in as a normal developer.
+3. Open one of the sample tasks.
+4. Start the task, make a small edit, save, and submit.
+5. Open the submission result page.
+6. Click `Generate AI feedback`.
+7. Confirm `submission_feedback` has a new row.
+8. Confirm the related `submissions` row has `score`, `reviewer_feedback`, `reviewed_at`, and
+   `status = in_review`.
+
+Run this workflow for the Week 4 sample tasks:
+
+- Python: `csv-parser`
+- Docker: `docker-multistage`
+- Git: `git-rebase`
+- Code review: `ai-dockerfile-review`
