@@ -29,7 +29,6 @@
   },
   "devDependencies": {
     "@next/swc-wasm-nodejs": "^16.2.6",
-    "@tailwindcss/oxide-wasm32-wasi": "^4.1.17",
     "@tailwindcss/postcss": "4.1.17",
     "@types/node": "22.19.15",
     "@types/pg": "8.18.0",
