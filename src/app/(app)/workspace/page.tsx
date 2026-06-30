@@ -304,28 +304,30 @@ export default function WorkspacePage() {
   };
 
   return (
-    <div className="-mx-4 md:-mx-6 -my-6">
-      <div className="flex flex-col h-[calc(100vh-3.5rem)]">
+    <div className="-mx-4 -my-6 md:-mx-6">
+      <div className="flex min-h-[calc(100vh-3.5rem)] flex-col xl:h-[calc(100vh-3.5rem)]">
         {/* Workspace Top Bar */}
-        <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-bg-card shrink-0">
-          <div className="flex items-center gap-3">
+        <div className="flex shrink-0 flex-col gap-2 border-b border-border bg-bg-card px-4 py-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
             <h2 className="text-sm font-semibold text-text">Fix broken Python CSV parser</h2>
             <Badge variant="outline">Intermediate</Badge>
             <Badge variant={workspaceBadge.variant}>{workspaceBadge.label}</Badge>
           </div>
-          <div className="flex items-center gap-2 text-xs text-text-tertiary">
+          <div className="flex shrink-0 items-center gap-2 text-xs text-text-tertiary">
             <Clock className="w-3 h-3" />
             <span>35 min estimated</span>
           </div>
         </div>
 
         {/* Main Workspace */}
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto xl:flex-row xl:overflow-hidden">
           {/* Left Panel - Instructions */}
           <div
             className={cn(
-              "border-r border-border bg-bg-card overflow-y-auto transition-all duration-200 shrink-0",
-              leftCollapsed ? "w-0 opacity-0" : "w-80"
+              "shrink-0 overflow-y-auto border-b border-border bg-bg-card transition-all duration-200 xl:border-b-0 xl:border-r",
+              leftCollapsed
+                ? "hidden xl:block xl:w-0 xl:opacity-0"
+                : "max-h-72 w-full xl:max-h-none xl:w-80"
             )}
           >
             <div className="p-4 space-y-4">
@@ -392,7 +394,7 @@ export default function WorkspacePage() {
           {/* Left Panel Toggle */}
           <button
             onClick={() => setLeftCollapsed(!leftCollapsed)}
-            className="w-5 flex items-center justify-center border-r border-border bg-bg-card hover:bg-surface-hover transition-colors shrink-0 cursor-pointer"
+            className="hidden w-5 shrink-0 cursor-pointer items-center justify-center border-r border-border bg-bg-card transition-colors hover:bg-surface-hover xl:flex"
           >
             <ChevronRight
               className={cn(
@@ -403,7 +405,7 @@ export default function WorkspacePage() {
           </button>
 
           {/* Center Panel - Code Editor */}
-          <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          <div className="flex min-h-[34rem] flex-1 flex-col overflow-hidden xl:min-h-0 xl:min-w-0">
             {/* File Tabs */}
             <div className="flex items-center border-b border-border bg-bg-card shrink-0 min-w-0">
               <div className="scrollbar-none flex min-w-0 flex-1 overflow-x-auto px-2">
@@ -456,7 +458,7 @@ export default function WorkspacePage() {
           </div>
 
           {/* Right Panel */}
-          <div className="w-72 border-l border-border bg-bg-card overflow-y-auto shrink-0 hidden lg:block">
+          <div className="max-h-[28rem] w-full shrink-0 overflow-y-auto border-t border-border bg-bg-card xl:max-h-none xl:w-72 xl:border-l xl:border-t-0">
             <div className="flex border-b border-border">
               {[
                 { id: "rubric", label: "Rubric", icon: ListChecks },
@@ -561,8 +563,8 @@ export default function WorkspacePage() {
         </div>
 
         {/* Bottom Bar */}
-        <div className="flex items-center justify-between px-4 py-2.5 border-t border-border bg-bg-card shrink-0">
-          <div className="flex items-center gap-2 text-xs">
+        <div className="flex shrink-0 flex-col gap-2 border-t border-border bg-bg-card px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-2 text-xs">
             {saveStatus === "saving" ? (
               <span className="flex items-center gap-1.5 text-text-tertiary">
                 <Loader2 className="w-3 h-3 animate-spin" /> {saveMessage}
@@ -583,7 +585,7 @@ export default function WorkspacePage() {
               <span className="text-warning">{saveMessage}</span>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
             <Button
               variant="secondary"
               size="sm"
